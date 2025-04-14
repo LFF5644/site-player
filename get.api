@@ -1,0 +1,25 @@
+<?
+	response.setHeader("Content-Type","text/event-stream");
+	response.setHeader("Cache-Control","no-cache");
+	response.setHeader("Connection","keep-alive");
+
+	const server=service_require("web/player/server");
+	const client=server.newClient();
+
+	let closed=false;
+	let id=0;
+	request.on("close",()=>{
+		closed=true;
+		server.removeClient(client);
+	});
+
+	response.write("event: init-id\ndata: "+client.id+"\nid: 0\n\n");
+
+	const stream=server.eventGenerator(client);
+	console.log(await stream.next());
+	for await(const event of stream){
+		id+=1;
+		if(closed) break;
+		response.write("event: "+event[0]+"\n"+"data: "+event[1]+"\nid: "+id+"\n\n");
+	}
+?>
