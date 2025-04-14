@@ -2,6 +2,7 @@ const child_process=require("child_process");
 const fs=require("fs");
 
 const logging=process.argv.includes("-v");
+//const log
 
 let player_settings={
 	engine: "ffplay",
@@ -16,6 +17,7 @@ let player={
 let events={
 	playback_ended: [],
 	playback_started:[],
+	playback_stopped: [],
 };
 
 function eventRunner(eventName,...args){
@@ -54,6 +56,12 @@ function exitPlayer(){
 	if(!player.process) return;
 	player.process.kill("SIGTERM");
 	if(logging) console.log("player killed.");
+	if(player.stream){
+		player.stream.destroy();
+		if(logging) console.log("stream killed.");
+		player.stream=null;
+
+	}
 	player.process=null;
 	player.track=null;
 	player.paused=false;
@@ -75,11 +83,15 @@ function changePlayback(track){
 	player.stream.pipe(player.process.stdin).on("error",e=>{
 		console.log("player stream pipe error "+e.code);
 	});
-	player.stream.on("close",()=>{
-		if(logging) console.log("playback stream ended.");
+	player.stream.on("end",()=>{
+		player.stream=null;
 		player.playing=false;
+		if(logging) console.log("playback stream ended.");
 		exitPlayer();
-		eventRunner("playback_ended");
+		eventRunner("playback_ended",track);
+	});
+	player.stream.on("close",()=>{
+		player.stream=null;
 	});
 };
 function pausePlayback(){
@@ -113,6 +125,16 @@ function play(track){
 		player.stream.on("close",()=>r());
 	});
 }
+function stopPlayback(){
+	if(
+		!player.process&&
+		!player.stream&&
+		!player.track
+	) return; //throw new Error("you cant stop player because already stopped or not started.");
+	log("stopping playback...");
+	exitPlayer();
+	eventRunner("playback_stopped");
+}
 
 
 process.on("exit",exitPlayer);
@@ -131,10 +153,10 @@ module.exports=(inp={})=>{
 
 	return {
 		changePlayback,
-		exitPlayer,
 		pausePlayback,
 		play,
 		resumePlayback,
+		stopPlayback,
 		events,
 		player_settings,
 		player,
