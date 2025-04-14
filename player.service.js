@@ -1,4 +1,10 @@
-const CONFIG_FILE="musicPlayer.json";
+// CREATED: 12.04.2025
+// newer version of currently-playing/musicPlayer, created: 14.01.2023, https://github.com/LFF5644/site-spotifyApiService
+const svr=this; // makes possible to use the service_object in functions.
+const CONFIG_FILE="player/player_config.json";
+
+const logging=process.argv.includes("-v");
+if(logging) await rtjscomp.actions.module_cache_clear();
 
 const {data_load}=rtjscomp;
 const musicLib=require("./public/web/player/player.lib.js")();
@@ -13,10 +19,7 @@ try{
 	log("require: node-id3 not found, continue without.");
 }
 
-
-const logging=process.argv.includes("-v");
-
-// no this.start function required in new rtjscomp version.
+// no svr.start function required in new rtjscomp version.
 const config=await data_load(CONFIG_FILE); // using new data_load function.
 if(!config) throw new Error("cant start service, config empty.")
 
@@ -240,8 +243,6 @@ async function searchMedia(){
 	delete log_fn;
 	delete log_timeout;
 
-	const thumbnails=new Map();
-	const albums=new Map();
 	const albumTemplate={
 		album_artist: null,
 		album_name: null,
@@ -254,7 +255,7 @@ async function searchMedia(){
 	};
 	for(const file of files_metadata){
 		if(file.image_id){
-			if(!thumbnails.has(file.image_id)) thumbnails.set(file.image_id,[file.image_type,file.image_buffer]);
+			if(!svr.thumbnails.has(file.image_id)) svr.thumbnails.set(file.image_id,[file.image_type,file.image_buffer]);
 			delete file.image_buffer;
 			delete file.image_type;
 		}
@@ -266,8 +267,8 @@ async function searchMedia(){
 
 		if(file.album_name){
 			const album_id=crypto.createHash("sha256").update(file.album_name+file.album_artist+file.disc_number).digest("hex");
-			if(!albums.has(album_id)) albums.set(album_id,{...albumTemplate}); // if i forget {...template} it will always be the same memory address!
-			const album=albums.get(album_id);
+			if(!svr.albums.has(album_id)) svr.albums.set(album_id,{...albumTemplate}); // if i forget {...template} it will always be the same memory address!
+			const album=svr.albums.get(album_id);
 
 			if(!album.album_artist&&file.album_artist) album.album_artist=file.album_artist;
 			if(!album.album_name&&file.album_name) album.album_name=file.album_name;
@@ -298,30 +299,80 @@ async function searchMedia(){
 			delete file.year;
 		}
 	}
-	const totalSize=[...thumbnails.entries()].map(item=>item[1][1].length).reduce((size,value)=>size+value); // read thumbnail size from all cached images with hacky way.
-	log("Total image size cached: "+Math.round(totalSize/1024*1000)/1000+" KB, "+thumbnails.size+" images cached.");
-	log("Alben: "+albums.size);
+	const totalSize=[...svr.thumbnails.entries()].map(item=>item[1][1].length).reduce((size,value)=>size+value); // read thumbnail size from all cached images with hacky way.
+	log("Total image size cached: "+Math.round(totalSize/1024*1000)/1000+" KB, "+svr.thumbnails.size+" images cached.");
+	log("Alben: "+svr.albums.size);
 	fsp.writeFile("/tmp/musicFiles.json",JSON.stringify({
-		albums: Object.fromEntries(albums.entries()),
+		albums: Object.fromEntries(svr.albums.entries()),
 		files: [...files_metadata.entries()].map(item=>item[1]), // hacky way to transform a Map to an Array.
 	},null,"\t"));
+
+	return files_metadata;
+}
+function playlist_add_album(album_id){
+	if(!svr.albums.has(album_id)) throw new Error("cant play not existing album: "+album_id);
+	const album=svr.albums.get(album_id);
+	let tracks=svr.files.filter(item=>item.album_id===album_id);
+	const album_has_track_numbers=!tracks.some(item=>!item.track_number);
+	tracks=tracks.sort((item1,item2)=> // sorting tracks by track_number or alternative by src/filename
+		album_has_track_numbers
+		? 	item1.track_number-item2.track_number
+		: 	item1.src.localCompare(item2.src)
+	);
+	if(logging) log("PLAYLIST: adding album'"+album.album_name+"' with "+tracks.length+" tracks.");
+	
+	svr.current_playlist.push(...tracks);
+}
+function playAlbum(album_id,force_play=false){
+	if(force_play){ // clearing current_playlist to start with album directly.
+		musicLib.stopPlayback();
+		svr.current_playlist=[];
+	}
+	playlist_add_album(album_id);
+	continuePlaylist();
+}
+function onPlaybackEnd(ended_track){
+	continuePlaylist();
 }
 
-await searchMedia();
+async function continuePlaylist(){
+	if(musicLib.player.playing) return;
+	if(musicLib.player.paused){
+		musicLib.resumePlayback();
+		return;
+	}
+
+	if(svr.current_playlist.length>0){
+		const track=svr.current_playlist.shift();
+		if(logging) log("playing next track.");
+		musicLib.changePlayback(track);
+	}
+	else{
+		if(logging) log("playlist finished!");
+	}
+}
+
+svr.albums=new Map();
+svr.current_playlist=[];
+svr.thumbnails=new Map();
+
+svr.files=await searchMedia();
+
+musicLib.events.playback_ended.push(onPlaybackEnd);
 
 const test_music_file="/media/storage/Medien/Musik/Alben - OMA/Desktop Musik/Adalberto Alvarez - Grandes Exitos/01 Tu Fiel Irorador.wma";
 const other_test_music_file="/home/lff/test.mp3";
 const other_test_music_file2="/home/lff/audiodump.wav";
 
-/*musicLib.play(other_test_music_file2);
+//playAlbum("142494ba08737bbca72ae49eb50e9425bce99f1661c793a1bdf554247cd2de6e"); // "Techno Parade '95"
+playAlbum("7fca7f51770552daed41a97e1116bc7253675a361fed9ce37a567b31f75eaf20"); // "Sunshine Live"
+//playAlbum("717ac49b9a06f0cfcf119f8434625ebf86a347bab53eed5d5d0b1dda37e3fb30"); // "Dream Dance Vol. 6"
 
-setTimeout(()=>{
-	musicLib.pausePlayback();
-},1e3*5);
-setTimeout(()=>{
-	musicLib.resumePlayback();
-},1e3*10);
-*/
 return async()=>{
-	musicLib.exitPlayer();
+	musicLib.stopPlayback(); // stopping playback & killing player.
+
+	// FREE RAM
+	delete svr.albums;
+	delete svr.files;
+	delete svr.thumbnails;
 }
