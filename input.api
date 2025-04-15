@@ -1,0 +1,67 @@
+<?
+	response.setHeader("Cache-Control","no-cache");
+	response.setHeader("Connection","close");
+	response.setHeader("Content-Type","text/plain; charset=utf-8");
+
+	const player=service_require("web/player/player");
+
+	switch(input.action){
+		case "play":
+			if(input.album_id&&player.albums.has(input.album_id)){
+				player.playAlbum(input.album_id,true);
+				response.write("Spiele Album...");
+			}
+			else{
+				player.play();
+				response.write("Versuche letzte Wiedergabe fort zu setzen...");
+			}
+			break;
+		case "pause":
+			if(!player.playback.paused&&player.playback.playing){
+				player.pausePlayback();
+				response.write("Pausiert.");
+			}
+			else{
+				response.write("Nicht pausiert.");
+			}
+			break;
+		case "resume":
+			if(player.playback.paused&&!player.playback.playing){
+				player.resumePlayback();
+				response.write("Fortgesetzt.");
+			}
+			else{
+				response.write("Nicht fortgesetzt.");
+			}
+			break;
+		case "stop":
+			player.stopPlayback();
+			response.write("Gestoppt.");
+			break;
+		case "next":
+			player.playNext();
+			response.write("Überspringe Song.");
+			break;
+		case "get_albums":
+			response.write("ALBEN:\n\n"+JSON.stringify(player.getAlbums(),null,2));
+			break;
+		case "get_playlist":
+			response.write("Song-Wiedergabeliste: "+player.current_playlist.length+"\nPLAYLIST:\n"+JSON.stringify(player.current_playlist,null,2));
+			break;
+		case "get_playback":
+			response.write("Song-Wiedergabeliste: "+player.current_playlist.length+"\nPLAYBACK:\n"+JSON.stringify({...player.playback,socket:undefined,process:undefined},null,2));
+			break;
+		case "get_image":
+			if(input.image_id&&player.thumbnails.has(input.image_id)){
+				const image=player.thumbnails.get(input.image_id);
+				response.setHeader("Content-Type",image[0]);
+				response.write(image[1]);
+				delete image;
+			}
+			else{
+				response.write("Bild nicht gefunden.");
+			}
+			break;
+		default: response.write("Aktionen: 'play', 'pause', 'resume', 'stop', 'next', 'get_albums', 'get_playback', 'get_playlist', 'get_image'."); break;
+	}
+?>

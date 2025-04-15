@@ -1,7 +1,7 @@
 <?
-	response.setHeader("Content-Type","text/event-stream");
 	response.setHeader("Cache-Control","no-cache");
 	response.setHeader("Connection","keep-alive");
+	response.setHeader("Content-Type","text/event-stream");
 
 	const server=service_require("web/player/server");
 	const client=server.newClient();

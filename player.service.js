@@ -93,7 +93,8 @@ async function getMetadata(file){
 	
 	const filename=file.split("/").pop();
 	const fileExtension=filename.split(".").pop();
-	const pathList=file.split("/").filter(item=>item!==filename);
+	const pathList=file.split("/");
+	pathList.pop();
 
 	readMetadata:{
 		if(!id3) break readMetadata;
@@ -154,7 +155,7 @@ async function getMetadata(file){
 	if(try_alternative){
 		// alternative way for none mp3 files or not supported files.
 		metadata.used_alternative=true;
-		let name=filename.substring(0,filename.length-fileExtension.length);
+		let name=filename.substring(0,filename.length-fileExtension.length-1);
 		const track_number=(
 			Number(filename.split(" ").shift())||
 			Number(filename.split("_").shift())||
@@ -167,8 +168,8 @@ async function getMetadata(file){
 			else if(!isNaN(Number(filename.split("-").shift()))) name=name.substring(filename.split("-").shift().length);
 		}
 		metadata.title=name.split("_").join(" ");
-		if(pathList[pathList.length].startsWith("CD")){
-			if(!isNaN(Number(pathList[pathList.length].substring(2).trim()))){
+		if(pathList[pathList.length-1]&&pathList[pathList.length-1].startsWith("CD")){
+			if(!isNaN(Number(pathList[pathList.length-1].substring(2).trim()))){
 				metadata.disc_number=Number(pathList.pop().substring(2).trim());
 			}
 		}
@@ -365,8 +366,20 @@ const other_test_music_file="/home/lff/test.mp3";
 const other_test_music_file2="/home/lff/audiodump.wav";
 
 //playAlbum("142494ba08737bbca72ae49eb50e9425bce99f1661c793a1bdf554247cd2de6e"); // "Techno Parade '95"
-playAlbum("7fca7f51770552daed41a97e1116bc7253675a361fed9ce37a567b31f75eaf20"); // "Sunshine Live"
+//playAlbum("7fca7f51770552daed41a97e1116bc7253675a361fed9ce37a567b31f75eaf20"); // "Sunshine Live"
 //playAlbum("717ac49b9a06f0cfcf119f8434625ebf86a347bab53eed5d5d0b1dda37e3fb30"); // "Dream Dance Vol. 6"
+
+svr.playback=musicLib.player;
+svr.stopPlayback=musicLib.stopPlayback;
+svr.playAlbum=playAlbum;
+svr.getAlbums=()=>[...svr.albums.entries()].map(item=>({...item[1],album_id:item[0]}));
+svr.pausePlayback=musicLib.pausePlayback;
+svr.resumePlayback=musicLib.resumePlayback;
+svr.play=continuePlaylist;
+svr.playNext=()=>{
+	musicLib.stopPlayback();
+	continuePlaylist();
+}
 
 return async()=>{
 	musicLib.stopPlayback(); // stopping playback & killing player.
