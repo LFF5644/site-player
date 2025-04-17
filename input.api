@@ -7,7 +7,7 @@
 
 	switch(input.action){
 		case "play":
-			if(input.album_id&&player.albums.has(input.album_id)){
+			if(input.album_id&&player.hasAlbum(input.album_id)){
 				player.playAlbum(input.album_id,true);
 				response.write("Spiele Album...");
 			}
@@ -43,13 +43,13 @@
 			response.write("Überspringe Song.");
 			break;
 		case "get_albums":
-			response.write("ALBEN:\n\n"+JSON.stringify(player.getAlbums(),null,2));
+			response.write("ALBEN: "+player.albums.length+"\n\n"+JSON.stringify(player.getAlbums(),null,2));
 			break;
 		case "get_playlist":
 			response.write("Song-Wiedergabeliste: "+player.current_playlist.length+"\nPLAYLIST:\n"+JSON.stringify(player.current_playlist,null,2));
 			break;
 		case "get_playback":
-			response.write("Song-Wiedergabeliste: "+player.current_playlist.length+"\nPLAYBACK:\n"+JSON.stringify({...player.playback,socket:undefined,process:undefined},null,2));
+			response.write("Song-Wiedergabeliste: "+player.current_playlist.length+"\nPLAYBACK:\n"+JSON.stringify({...player.playback,stream:undefined,process:undefined},null,2));
 			break;
 		case "get_image":
 			if(input.image_id&&player.thumbnails.has(input.image_id)){

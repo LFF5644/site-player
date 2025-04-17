@@ -16,7 +16,6 @@
 	response.write("event: init-id\ndata: "+client.id+"\nid: 0\n\n");
 
 	const stream=server.eventGenerator(client);
-	console.log(await stream.next());
 	for await(const event of stream){
 		id+=1;
 		if(closed) break;

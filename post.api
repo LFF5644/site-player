@@ -1,0 +1,24 @@
+<?
+	const server=service_require("web/player/server");
+	const {action,client_id}=input;
+	const client=server.clients.get(client_id);
+	
+	function end(code,msg){
+		response.write(msg);
+		response.statusCode=code;
+		// throw here!
+	}
+
+	if(!client) return end(400,"client not exist."); // client id wrong or undefined.
+	log("action: "+action);
+	if(action==="request_albums"){
+		client.requests.push("get_albums");
+		client.check();
+		return end(200,"OK");
+	}
+	else if(action==="nextTick"){
+		client.check();
+		return end(200,"OK");
+	}
+	else return end(400,"request action not exist."); // action not exists.
+?>

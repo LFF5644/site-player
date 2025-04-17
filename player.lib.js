@@ -48,7 +48,7 @@ function spawnPlayer(){
 	if(logging) console.log("spawning player");
 	player.process.stdin.on("error",e=>{
 		console.log("player stdin error: "+e.code);
-		exitPlayer();
+		//exitPlayer();
 	});
 }
 

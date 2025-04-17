@@ -101,7 +101,8 @@ async function getMetadata(file){
 		if(fileExtension!=="mp3") break readMetadata;
 
 		// open the file but not the entire file
-		const MAX_READ_SIZE=1024*640; // i hope the file header is in the first 640KB. with the image.
+		//const MAX_READ_SIZE=1024*640; // i hope the file header is in the first 640KB. with the image.
+		const MAX_READ_SIZE=1024*1; // just one KB for fast service start.
 		const stream=fs.createReadStream(file,{
 			start: 0,
 			end: MAX_READ_SIZE,
@@ -245,10 +246,11 @@ async function searchMedia(){
 	delete log_timeout;
 
 	const albumTemplate={
+		//id: null,
 		album_artist: null,
+		album_id: null,
 		album_name: null,
 		disc_number: 0,
-		//id: null,
 		image_id: null,
 		used_alternative: false,
 		used_id3: false,
@@ -268,8 +270,11 @@ async function searchMedia(){
 
 		if(file.album_name){
 			const album_id=crypto.createHash("sha256").update(file.album_name+file.album_artist+file.disc_number).digest("hex");
-			if(!svr.albums.has(album_id)) svr.albums.set(album_id,{...albumTemplate}); // if i forget {...template} it will always be the same memory address!
-			const album=svr.albums.get(album_id);
+			if(!hasAlbum(album_id)) svr.albums.push({
+				...albumTemplate,
+				album_id,
+			});
+			const album=getAlbum(album_id);
 
 			if(!album.album_artist&&file.album_artist) album.album_artist=file.album_artist;
 			if(!album.album_name&&file.album_name) album.album_name=file.album_name;
@@ -302,19 +307,21 @@ async function searchMedia(){
 	}
 	const totalSize=[...svr.thumbnails.entries()].map(item=>item[1][1].length).reduce((size,value)=>size+value); // read thumbnail size from all cached images with hacky way.
 	log("Total image size cached: "+Math.round(totalSize/1024*1000)/1000+" KB, "+svr.thumbnails.size+" images cached.");
-	log("Alben: "+svr.albums.size);
+	log("Alben: "+svr.albums.length);
 	fsp.writeFile("/tmp/musicFiles.json",JSON.stringify({
-		albums: Object.fromEntries(svr.albums.entries()),
-		files: [...files_metadata.entries()].map(item=>item[1]), // hacky way to transform a Map to an Array.
+		albums: svr.albums,
+		files: files_metadata, //[...files_metadata.entries()].map(item=>item[1]), // hacky way to transform a Map to an Array.
 	},null,"\t"));
 
 	return files_metadata;
 }
+function hasAlbum(album_id){return svr.albums.some(item=>item.album_id===album_id)}
+function getAlbum(album_id){return svr.albums.find(item=>item.album_id===album_id)}
 function playlist_add_album(album_id){
-	if(!svr.albums.has(album_id)) throw new Error("cant play not existing album: "+album_id);
-	const album=svr.albums.get(album_id);
+	if(!hasAlbum(album_id)) throw new Error("cant play not existing album: "+album_id);
+	const album=getAlbum(album_id);
 	let tracks=svr.files.filter(item=>item.album_id===album_id);
-	const album_has_track_numbers=!tracks.some(item=>!item.track_number);
+	const album_has_track_numbers=(!tracks.some(item=>!item.track_number));
 	tracks=tracks.sort((item1,item2)=> // sorting tracks by track_number or alternative by src/filename
 		album_has_track_numbers
 		? 	item1.track_number-item2.track_number
@@ -353,7 +360,9 @@ async function continuePlaylist(){
 	}
 }
 
-svr.albums=new Map();
+svr.getAlbum=getAlbum;
+svr.hasAlbum=hasAlbum;
+svr.albums=[];
 svr.current_playlist=[];
 svr.thumbnails=new Map();
 
@@ -361,9 +370,9 @@ svr.files=await searchMedia();
 
 musicLib.events.playback_ended.push(onPlaybackEnd);
 
-const test_music_file="/media/storage/Medien/Musik/Alben - OMA/Desktop Musik/Adalberto Alvarez - Grandes Exitos/01 Tu Fiel Irorador.wma";
-const other_test_music_file="/home/lff/test.mp3";
-const other_test_music_file2="/home/lff/audiodump.wav";
+//const test_music_file="/media/storage/Medien/Musik/Alben - OMA/Desktop Musik/Adalberto Alvarez - Grandes Exitos/01 Tu Fiel Irorador.wma";
+//const other_test_music_file="/home/lff/test.mp3";
+//const other_test_music_file2="/home/lff/audiodump.wav";
 
 //playAlbum("142494ba08737bbca72ae49eb50e9425bce99f1661c793a1bdf554247cd2de6e"); // "Techno Parade '95"
 //playAlbum("7fca7f51770552daed41a97e1116bc7253675a361fed9ce37a567b31f75eaf20"); // "Sunshine Live"
@@ -372,7 +381,7 @@ const other_test_music_file2="/home/lff/audiodump.wav";
 svr.playback=musicLib.player;
 svr.stopPlayback=musicLib.stopPlayback;
 svr.playAlbum=playAlbum;
-svr.getAlbums=()=>[...svr.albums.entries()].map(item=>({...item[1],album_id:item[0]}));
+svr.getAlbums=()=>[...svr.albums]; //[...svr.albums.entries()].map(item=>({...item[1],album_id:item[0]}));
 svr.pausePlayback=musicLib.pausePlayback;
 svr.resumePlayback=musicLib.resumePlayback;
 svr.play=continuePlaylist;
