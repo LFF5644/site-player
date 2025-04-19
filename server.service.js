@@ -3,6 +3,7 @@ const player=service_require("web/player/player");
 const crypto=require("crypto");
 
 svr.clients=new Map();
+svr.client_ids=[];
 svr.running=true;
 
 //async function 
@@ -15,9 +16,10 @@ function simpleHash(str){
 	//console.log(str,hash);
 	return hash;
 }
-async function* eventGenerator(client){
+async function* eventGenerator(client_id){
 	//const UPDATE_INTERVAL=5e3;
-	if(!svr.clients.has(client.id)) throw new Error("client not exist");
+	if(!svr.clients.has(client_id)) throw new Error("client not exist");
+	const client=svr.clients.get(client_id);
 	while(svr.running){
 		const wait=client.wait();
 		yield ["log","still active connection!"];
@@ -46,18 +48,20 @@ async function* eventGenerator(client){
 
 function newClient(){
 	const client={
+		check: null,
 		id: crypto.randomBytes(8).toString("hex").substring(0,16),
 		requests: [],
-		//nextTick: null, // this is a promise
-		wait: null, // this is a function that returns a promise that
+		wait: null,
 	};
 	client.wait=()=>new Promise(resolve=>{client.check=resolve});
 	//client.wait();
 	svr.clients.set(client.id,client);
+	svr.client_ids.push(client.id);
 	return client;
 }
 function removeClient(client){
-	return svr.clients.delete(client.id);
+	svr.clients.delete(client.id);
+	svr.client_ids=svr.client_ids.filter(item=>item!==client.id);
 }
 
 svr.eventGenerator=eventGenerator;
@@ -65,5 +69,10 @@ svr.newClient=newClient;
 svr.removeClient=removeClient;
 return async ()=>{
 	svr.running=false;
+	for(const id of svr.client_ids){
+		const client=svr.clients.get(id);
+		client.check(); // make the generator stop.
+	}
+	svr.client_ids=[];
 	svr.clients.clear();
 };

@@ -322,10 +322,12 @@ function playlist_add_album(album_id){
 	const album=getAlbum(album_id);
 	let tracks=svr.files.filter(item=>item.album_id===album_id);
 	const album_has_track_numbers=(!tracks.some(item=>!item.track_number));
+	//console.log("album_has_track_numbers:",album_has_track_numbers);
+	//if(!album_has_track_numbers) console.log(tracks);
 	tracks=tracks.sort((item1,item2)=> // sorting tracks by track_number or alternative by src/filename
 		album_has_track_numbers
 		? 	item1.track_number-item2.track_number
-		: 	item1.src.localCompare(item2.src)
+		: 	item1.src.localeCompare(item2.src) // I FORGOT AN FUKING "E" at the end and got an error that localCompare is not a function and i searched too long :(
 	);
 	if(logging) log("PLAYLIST: adding album'"+album.album_name+"' with "+tracks.length+" tracks.");
 	

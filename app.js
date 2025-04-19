@@ -91,6 +91,7 @@ function initialiseStream(actions){
 	});
 	stream.addEventListener("set-albums",event=>{
 		//alert(event.data);
+		console.log("setting albums.");
 		console.log("albums",JSON.parse(event.data));
 		
 		actions.modify({
