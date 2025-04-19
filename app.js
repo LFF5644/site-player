@@ -5,22 +5,30 @@ const {
 	node_dom,
 	node_map,
 }=window.lui;
-
+let log_counter=0;
 const model={
 	init:()=>({
-		log: [],
+		albums: [],
 		client_id: null,
-		stream_connection: false,
-		tracks:[],
-		albums:[],
+		log: [],
+		playback: {},
 		requests: [],
 		search: "",
+		stream_connection: false,
+		tracks: [],
 	}),
 	addRequest: (state,request)=>({
 		...state,
 		requests: [
 			...state.requests.filter(item=>item!==request),
 			request,
+		],
+	}),
+	addTrack: (state,...tracks)=>({
+		...state,
+		tracks: [
+			...state.tracks.filter(item=>!tracks.some(i=>i.src===item.src)),
+			...tracks,
 		],
 	}),
 	removeRequest: (state,request)=>({
@@ -59,7 +67,7 @@ async function makeRequest(request,client_id){
 	if(response!=="OK"){
 		alert("request nicht durchgelassen: "+request+"\nantwort: "+response);
 	}
-	else console.log("successful action: "+request+" getting response via eventStream.");
+	else console.log("successful action: '"+request+"' getting response via eventStream.");
 }
 function initialiseStream(actions){
 	const stream=new EventSource("/raw/player.event");
@@ -83,11 +91,11 @@ function initialiseStream(actions){
 
 	stream.addEventListener("log",event=>{
 		console.log(event.type,event.data);
-		/*actions.appendLog({
-			id: Number(event.lastEventId),
+		actions.appendLog({
+			id: log_counter+=1, // log_counter+=1; value => id.
 			data: event.data,
 			event: event.type,
-		});*/
+		});
 	});
 	stream.addEventListener("set-albums",event=>{
 		//alert(event.data);
@@ -98,6 +106,14 @@ function initialiseStream(actions){
 			albums: JSON.parse(event.data),
 		});
 		actions.removeRequest("albums");
+	});
+	stream.addEventListener("set-playback",event=>{
+		const playback=JSON.parse(event.data);
+		console.log("set-playback",playback);
+		actions.modify({
+			playback,
+		});
+		if(playback.track) actions.addTrack(playback.track);
 	});
 	stream.addEventListener("init-id",event=>{
 		actions.modify({
@@ -122,7 +138,7 @@ function AlbumPreview({I}){
 function LogEntry({I}){
 	return[
 		node_dom("p",{
-			innerText: `${I.event}: ${I.data}`,
+			innerText: `LOG: ${I.event}: ${I.data}`,
 			title: I.id,
 		}),
 	];
@@ -175,6 +191,17 @@ function Root(){
 				oninput: event=> actions.modify({search: event.target.value}),
 			})
 		]),
+
+		state.playback.playing&&
+		state.playback.track&&
+		node_dom("p[innerText=Aktuelle Wiedergabe: ]",null,[
+			node_dom("span",{
+				innerText: state.playback.track.title,
+			}),
+		]),
+		!state.playback.playing&&
+		node_dom("p[innerText=Derzeit keine Musik-Wiedergabe.][style=color:red]"),
+
 		node_map(AlbumPreview,
 			state.search
 			? 	state.albums.filter(item=>item.album_name.toLowerCase().includes(state.search.toLowerCase()))

@@ -27,7 +27,7 @@ async function* eventGenerator(client_id){
 			const request=client.requests.pop();
 			log("request: "+request+", from client: "+client.id);
 			if(request==="get_albums"){
-				const albums=player.albums
+				const albums=(player.albums
 					.map(item=>({
 						...item,
 						id: simpleHash(item.album_id),
@@ -35,14 +35,25 @@ async function* eventGenerator(client_id){
 							.filter(i=>i.album_id===item.album_id)
 							.map(i=>i.src)
 						),
-					}));
+					}))
+				);
 				yield ["set-albums",JSON.stringify(albums)];
 			}
 			else yield ["log","err unknown request in server side."];
 		}
 		// its the main-loop like in an game.
-		await wait; // waits until the client needs data, false means exit generator.
-		//new Promise(r=>setTimeout(r,UPDATE_INTERVAL));
+		const info=await wait; // waits until the client needs data, false means exit generator.
+		if(info===false) break; // if info false break/stopping generator.
+		else if(!info) continue; // no custom action.
+		else if(info==="playback_change"){
+			const {
+				paused,
+				playing,
+				track,
+			}=player.playback;
+			yield ["log","playback changed."];
+			yield ["set-playback",JSON.stringify({playing,paused,track})];
+		}
 	}
 }
 
@@ -63,10 +74,22 @@ function removeClient(client){
 	svr.clients.delete(client.id);
 	svr.client_ids=svr.client_ids.filter(item=>item!==client.id);
 }
+function updateClientGenerator(info){
+	for(const id of svr.client_ids){
+		const client=svr.clients.get(id);
+		client.check(info); // stopping waiting and recheck for changes.
+	}
+}
+function onPlaybackChange(){
+	updateClientGenerator("playback_change");
+}
 
 svr.eventGenerator=eventGenerator;
 svr.newClient=newClient;
 svr.removeClient=removeClient;
+
+player.events.playback_change.push(onPlaybackChange);
+
 return async ()=>{
 	svr.running=false;
 	for(const id of svr.client_ids){

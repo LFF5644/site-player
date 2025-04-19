@@ -315,6 +315,12 @@ async function searchMedia(){
 
 	return files_metadata;
 }
+function eventRunner(event,...args){
+	if(!svr.events[event]) throw new Error("event with name "+event+" do not exist!");
+	for(const fn of svr.events[event]){
+		fn(...args);
+	}
+}
 function hasAlbum(album_id){return svr.albums.some(item=>item.album_id===album_id)}
 function getAlbum(album_id){return svr.albums.find(item=>item.album_id===album_id)}
 function playlist_add_album(album_id){
@@ -327,7 +333,7 @@ function playlist_add_album(album_id){
 	tracks=tracks.sort((item1,item2)=> // sorting tracks by track_number or alternative by src/filename
 		album_has_track_numbers
 		? 	item1.track_number-item2.track_number
-		: 	item1.src.localeCompare(item2.src) // I FORGOT AN FUKING "E" at the end and got an error that localCompare is not a function and i searched too long :(
+		: 	item1.src.localeCompare(item2.src) // I FORGOT AN FUCKING "E" at the end and got an error that localCompare is not a function and i searched too long :(
 	);
 	if(logging) log("PLAYLIST: adding album'"+album.album_name+"' with "+tracks.length+" tracks.");
 	
@@ -343,6 +349,12 @@ function playAlbum(album_id,force_play=false){
 }
 function onPlaybackEnd(ended_track){
 	continuePlaylist();
+}
+function onPlaybackStart(track){
+	eventRunner("playback_change");
+}
+function onPlaybackStopp(){
+	eventRunner("playback_change");
 }
 
 async function continuePlaylist(){
@@ -370,7 +382,10 @@ svr.thumbnails=new Map();
 
 svr.files=await searchMedia();
 
+// append event listeners
 musicLib.events.playback_ended.push(onPlaybackEnd);
+musicLib.events.playback_started.push(onPlaybackStart);
+musicLib.events.playback_stopped.push(onPlaybackStopp);
 
 //const test_music_file="/media/storage/Medien/Musik/Alben - OMA/Desktop Musik/Adalberto Alvarez - Grandes Exitos/01 Tu Fiel Irorador.wma";
 //const other_test_music_file="/home/lff/test.mp3";
@@ -391,6 +406,9 @@ svr.playNext=()=>{
 	musicLib.stopPlayback();
 	continuePlaylist();
 }
+svr.events={
+	"playback_change":[],
+};
 
 return async()=>{
 	musicLib.stopPlayback(); // stopping playback & killing player.
