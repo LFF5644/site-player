@@ -7,8 +7,9 @@
 
 	switch(input.action){
 		case "play":
-			if(input.album_id&&player.hasAlbum(input.album_id)){
-				player.playAlbum(input.album_id,true);
+			const album_id=Number(input.album_id);
+			if(album_id&&player.hasAlbum(album_id)){
+				player.playAlbum(album_id,true);
 				response.write("Spiele Album...");
 			}
 			else{
