@@ -11,6 +11,7 @@ const musicLib=require("./public/web/player/player.lib.js")();
 const fsp=require("fs/promises");
 const fs=require("fs");
 const crypto=require("crypto");
+const xxhash=require("xxhash");
 
 let id3;
 try{
@@ -23,6 +24,14 @@ try{
 const config=await data_load(CONFIG_FILE); // using new data_load function.
 if(!config) throw new Error("cant start service, config empty.")
 
+function hash_str(data){
+	const id=5644;
+	return xxhash.hash(Buffer.from("lff.one/player:"+data),id);
+}
+function hash_data(data){
+	const id=5644+1234;
+	return xxhash.hash(data,id)
+}
 function chunkCreator(array,size){
 	return new Array(Math.ceil(array.length/size)).fill(0).map((_item,index)=>array.slice(index*size,index*size+size));
 }
@@ -73,6 +82,7 @@ async function getMetadata(file){
 	let try_alternative=true;
 	const metadata={
 		//id: crypto.createHash("sha256").update(file).digest("hex"),
+//		id: hash_str(file),
 		album_artist: null,
 		album_id: null,
 		album_name: null,
@@ -142,7 +152,7 @@ async function getMetadata(file){
 		if(tags.trackNumber&&!isNaN(Number(tags.trackNumber))) metadata.track_number=Number(tags.trackNumber);
 		if(tags.year&&!isNaN(Number(tags.year))) metadata.year=Number(tags.year);
 		if(tags.image&&tags.image.imageBuffer){
-			metadata.image_id=crypto.createHash("sha256").update(tags.image.imageBuffer).digest("hex");
+			metadata.image_id=hash_data(tags.image.imageBuffer); //crypto.createHash("sha256").update(tags.image.imageBuffer).digest("hex");
 			metadata.image_type=tags.image.mime;
 			metadata.image_buffer=tags.image.imageBuffer;
 			delete tags.image.imageBuffer;
@@ -246,7 +256,7 @@ async function searchMedia(){
 	delete log_timeout;
 
 	const albumTemplate={
-		//id: null,
+		id: 0,
 		album_artist: null,
 		album_id: null,
 		album_name: null,
@@ -269,7 +279,8 @@ async function searchMedia(){
 		}
 
 		if(file.album_name){
-			const album_id=crypto.createHash("sha256").update(file.album_name+file.album_artist+file.disc_number).digest("hex");
+			//const album_id=crypto.createHash("sha256").update(file.album_name+file.album_artist+file.disc_number).digest("hex");
+			const album_id=hash_str(file.album_name+file.album_artist+file.disc_number);
 			if(!hasAlbum(album_id)) svr.albums.push({
 				...albumTemplate,
 				album_id,
@@ -284,7 +295,7 @@ async function searchMedia(){
 			if(!album.used_id3&&file.used_id3) album.used_id3=file.used_id3;
 			if(!album.year&&file.year) album.year=file.year;
 
-			if(file.image_id===album.image_id) delete file.image_id;
+			if(file.image_id===album.image_id) file.image_id=null;
 
 			// now unused.
 			delete file.album_artist;
@@ -299,10 +310,10 @@ async function searchMedia(){
 			// remove unused keys from non album track.
 			// and saving memory and disc space.
 			delete file.album_artist;
-			delete file.album_id;
 			delete file.album_name;
 			delete file.disc_number;
 			delete file.year;
+			file.album_id=null;
 		}
 	}
 	const totalSize=[...svr.thumbnails.entries()].map(item=>item[1][1].length).reduce((size,value)=>size+value); // read thumbnail size from all cached images with hacky way.

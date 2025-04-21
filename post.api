@@ -16,7 +16,14 @@
 		client.check();
 		return end(200,"OK");
 	}
-	else if(action==="nextTick"){
+	/*else if(action==="nextTick"){
+		client.check();
+		return end(200,"OK");
+	}*/
+	else if(action==="request_files"){
+		const fileSources=input.data;
+		if(typeof(input.data)!=="object") return end(400,"requested files not sended.");
+		client.requests.push(["get_files",input.data])
 		client.check();
 		return end(200,"OK");
 	}

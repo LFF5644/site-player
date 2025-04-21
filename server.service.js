@@ -2,18 +2,18 @@ const svr=this;
 const player=service_require("web/player/player");
 const crypto=require("crypto");
 
+const {xxhash}=globals.functions;
+
 svr.clients=new Map();
 svr.client_ids=[];
 svr.running=true;
 
+let id_counter=0;
+
 //async function 
-function simpleHash(str){
-	let hash=1;
-	let multiplayer=5644;
-	for(let index=0; index<str.length; index+=1){
-		hash=hash*multiplayer+str.charCodeAt(index) >>> 0; // because of 32 bit;
-	}
-	//console.log(str,hash);
+function hash(x){
+	const hash=xxhash("WOW_RAND_"+x,213);
+	console.log(x,hash);
 	return hash;
 }
 async function* eventGenerator(client_id){
@@ -34,13 +34,19 @@ async function* eventGenerator(client_id){
 		const wait=client.wait();
 		yield ["log","NEXT-TICK: "+client_id];
 		while(client.requests.length>0){
-			const request=client.requests.pop();
+			let request=client.requests.pop();
+			let data;
+			if(typeof(request)!=="string"){
+				data=request[1];
+				request=request[0];
+			}
+
 			l("request: "+request);
 			if(request==="get_albums"){
 				const albums=(player.albums
 					.map(item=>({
 						...item,
-						id: simpleHash(item.album_id),
+						id: hash(item.album_id),
 						files: (player.files
 							.filter(i=>i.album_id===item.album_id)
 							.map(i=>i.src)
@@ -57,6 +63,19 @@ async function* eventGenerator(client_id){
 				}=player.playback;
 				yield ["log","playback changed."];
 				yield ["set-playback",JSON.stringify({playing,paused,track})];
+			}
+			else if(request==="get_files"){
+				if(!data) yield ["log","err files to send not given."];
+				else{
+					for(const src of data){
+						const file=player.files.find(item=>item.src===src);
+						if(!file) yield ["log","err file src not exist."];
+						else yield ["add-file",JSON.stringify({
+							...file,
+							id: hash(file.src),
+						})];
+					}
+				}
 			}
 			else yield ["log","err unknown request in server side."];
 		}
