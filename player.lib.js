@@ -2,7 +2,6 @@ const child_process=require("child_process");
 const fs=require("fs");
 
 const logging=process.argv.includes("-v");
-//const log
 
 let player_settings={
 	engine: "ffplay",
@@ -35,6 +34,7 @@ function spawnPlayer(){
 				"-probesize", "32",
 				"-loglevel","quiet",
 				"-fflags","nobuffer",
+				"-autoexit",
 				"-i","-",
 			],{
 				stdio: ["pipe", "ignore", "ignore"],
@@ -45,22 +45,33 @@ function spawnPlayer(){
 		}
 	}
 	else throw new Error("engine is not supported: "+config.engine);
+
 	if(logging) console.log("spawning player");
+	player.process.on("close",(code,signal)=>{
+		if(logging) console.log("player process closed with code & signal:",code,signal);
+		player.process=null;
+		player.paused=false;
+		player.playing=false;
+	});
 	player.process.stdin.on("error",e=>{
 		console.log("player stdin error: "+e.code);
 		//exitPlayer();
 	});
 }
 
-function exitPlayer(){
-	if(!player.process) return;
-	player.process.kill("SIGTERM");
-	if(logging) console.log("player killed.");
+async function exitPlayer(){
+	if(player.process){
+		const closed_promise=new Promise(resolve=> player.process.once("close",resolve));
+		if(logging) console.log("player killing...");
+		player.process.kill("SIGINT");
+		await closed_promise; // waits while player closing...
+		//if(logging) console.log("player killed.");
+		//player.process=null;
+	}
 	if(player.stream){
 		player.stream.destroy();
 		if(logging) console.log("stream killed.");
 		player.stream=null;
-
 	}
 	player.process=null;
 	player.track=null;
@@ -68,8 +79,8 @@ function exitPlayer(){
 	player.playing=false;
 }
 
-function changePlayback(track){
-	exitPlayer();
+async function changePlayback(track){
+	await exitPlayer();
 	spawnPlayer();
 	try{
 		player.stream=fs.createReadStream(track.src);
@@ -78,17 +89,27 @@ function changePlayback(track){
 	}
 	player.playing=true;
 	player.track=track;
+
 	if(logging) console.log("new playback "+track.src);
 	eventRunner("playback_started",track);
+
 	player.stream.pipe(player.process.stdin).on("error",e=>{
 		console.log("player stream pipe error "+e.code);
 	});
 	player.stream.on("end",()=>{
 		player.stream=null;
-		player.playing=false;
 		if(logging) console.log("playback stream ended.");
-		exitPlayer();
-		eventRunner("playback_ended",track);
+	});
+	player.process.once("close",(code,signal)=>{
+		//if(logging) console.log("player closed with:",signal,code);
+		//player.playing=false;
+		//exitPlayer(); // i hope not needed because already correctly ended.
+		if(signal||code){
+			// code 123 happens if i guess player killed with SIGINT or pipe err.
+			if(logging||code!==123) console.log("playback not ended successfully. SIGNAL:",signal,"CODE:",code);
+			eventRunner("playback_stopped",track);
+		}
+		else eventRunner("playback_ended",track);
 	});
 	player.stream.on("close",()=>{
 		player.stream=null;
@@ -121,18 +142,19 @@ function resumePlayback(){
 function play(track){
 	if(typeof(track)==="string") track={src:track};
 	changePlayback(track);
-	return new Promise(r=>{
+	// return promise that resolves if track ended.
+	/*return new Promise(r=>{
 		player.stream.on("close",()=>r());
-	});
+	});*/ // i will recode that later.
 }
-function stopPlayback(){
+async function stopPlayback(){
 	if(
 		!player.process&&
 		!player.stream&&
 		!player.track
 	) return; //throw new Error("you cant stop player because already stopped or not started.");
 	log("stopping playback...");
-	exitPlayer();
+	await exitPlayer();
 	eventRunner("playback_stopped");
 }
 
