@@ -10,12 +10,6 @@ svr.running=true;
 
 let id_counter=0;
 
-//async function 
-function hash(x){
-	const hash=xxhash("WOW_RAND_"+x,213);
-	console.log(x,hash);
-	return hash;
-}
 async function* eventGenerator(client_id){
 	const l=a=>log("Generator-"+client_id+": "+a);
 	//const UPDATE_INTERVAL=5e3;
@@ -46,10 +40,10 @@ async function* eventGenerator(client_id){
 				const albums=(player.albums
 					.map(item=>({
 						...item,
-						id: hash(item.album_id),
+						//id: hash(item.album_id),
 						files: (player.files
-							.filter(i=>i.album_id===item.album_id)
-							.map(i=>i.src)
+							.filter(i=>i.album_id===item.id)
+							.map(i=>i.id)
 						),
 					}))
 				);
@@ -67,12 +61,12 @@ async function* eventGenerator(client_id){
 			else if(request==="get_files"){
 				if(!data) yield ["log","err files to send not given."];
 				else{
-					for(const src of data){
-						const file=player.files.find(item=>item.src===src);
-						if(!file) yield ["log","err file src not exist."];
+					for(const file_id of data){
+						const file=player.files.find(item=>item.id===file_id);
+						if(!file) yield ["log","err file id not exist."];
 						else yield ["add-file",JSON.stringify({
 							...file,
-							id: hash(file.src),
+							//id: hash(file.src),
 						})];
 					}
 				}

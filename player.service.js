@@ -81,8 +81,7 @@ async function getFiles(folder){
 async function getMetadata(file){
 	let try_alternative=true;
 	const metadata={
-		//id: crypto.createHash("sha256").update(file).digest("hex"),
-//		id: hash_str(file),
+		id: hash_str(file),
 		album_artist: null,
 		album_id: null,
 		album_name: null,
@@ -258,7 +257,6 @@ async function searchMedia(){
 	const albumTemplate={
 		id: 0,
 		album_artist: null,
-		album_id: null,
 		album_name: null,
 		disc_number: 0,
 		image_id: null,
@@ -283,7 +281,7 @@ async function searchMedia(){
 			const album_id=hash_str(file.album_name+file.album_artist+file.disc_number);
 			if(!hasAlbum(album_id)) svr.albums.push({
 				...albumTemplate,
-				album_id,
+				id: album_id,
 			});
 			const album=getAlbum(album_id);
 
@@ -332,19 +330,17 @@ function eventRunner(event,...args){
 		fn(...args);
 	}
 }
-function hasAlbum(album_id){return svr.albums.some(item=>item.album_id===album_id)}
-function getAlbum(album_id){return svr.albums.find(item=>item.album_id===album_id)}
+function hasAlbum(album_id){return svr.albums.some(item=>item.id===album_id)}
+function getAlbum(album_id){return svr.albums.find(item=>item.id===album_id)}
 function playlist_add_album(album_id){
 	if(!hasAlbum(album_id)) throw new Error("cant play not existing album: "+album_id);
 	const album=getAlbum(album_id);
 	let tracks=svr.files.filter(item=>item.album_id===album_id);
 	const album_has_track_numbers=(!tracks.some(item=>!item.track_number));
-	//console.log("album_has_track_numbers:",album_has_track_numbers);
-	//if(!album_has_track_numbers) console.log(tracks);
 	tracks=tracks.sort((item1,item2)=> // sorting tracks by track_number or alternative by src/filename
 		album_has_track_numbers
 		? 	item1.track_number-item2.track_number
-		: 	item1.src.localeCompare(item2.src) // I FORGOT AN FUCKING "E" at the end and got an error that localCompare is not a function and i searched too long :(
+		: 	item1.src.localeCompare(item2.src)
 	);
 	if(logging) log("PLAYLIST: adding album '"+album.album_name+"' with "+tracks.length+" tracks.");
 	
@@ -410,7 +406,7 @@ musicLib.events.playback_stopped.push(onPlaybackStopp);
 svr.playback=musicLib.player;
 svr.stopPlayback=musicLib.stopPlayback;
 svr.playAlbum=playAlbum;
-svr.getAlbums=()=>[...svr.albums]; //[...svr.albums.entries()].map(item=>({...item[1],album_id:item[0]}));
+//svr.getAlbums=()=>[...svr.albums]; //[...svr.albums.entries()].map(item=>({...item[1],album_id:item[0]}));
 svr.pausePlayback=musicLib.pausePlayback;
 svr.resumePlayback=musicLib.resumePlayback;
 svr.play=continuePlaylist;

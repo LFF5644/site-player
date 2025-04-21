@@ -146,7 +146,7 @@ function initialiseStream(actions){
 		const file=JSON.parse(event.data);
 		console.log("add-file",file);
 		actions.addFile(file);
-		actions.removeRequest("file-"+file.src);
+		actions.removeRequest("file-"+file.id);
 	});
 	stream.addEventListener("init-id",event=>{
 		actions.modify({
@@ -156,7 +156,7 @@ function initialiseStream(actions){
 	return stream;
 }
 function checkRequestFiles(files,state,actions){
-	const neededFiles=files.filter(item=>!state.files.some(i=>i.src===item));
+	const neededFiles=files.filter(item=>!state.files.some(i=>i.id===item));
 	const requestFiles=neededFiles.filter(item=>!state.requests.some(i=>i===("file-"+item)));
 
 	if(requestFiles.length===0) return [neededFiles,[]];
@@ -189,17 +189,13 @@ function AlbumEntry({I,actions}){
 			innerText: I.album_name+" ("+I.files.length+") ",
 		},[
 			node_dom("a[innerText=P]",{
-				href: "/web/player/input.api?action=play&album_id="+I.album_id,
+				href: "/web/player/input.api?action=play&album_id="+I.id,
 				target: "_blank",
 				onclick: ()=> confirm("Möchtest du '"+I.album_name+"' abspielen?"),
 			}),
 			node_dom("button[innerText=view]",{
-				onclick: ()=> actions.changeView("album",I.album_id),
-				/*onclick: ()=> actions.modify({
-					view: "album",
-					view_id: I.album_id,
-				}),*/
-			})
+				onclick: ()=> actions.changeView("album",I.id),
+			}),
 		]),
 	];
 }
@@ -217,7 +213,7 @@ function FileEntry({I,state}){
 	];
 }
 function ViewAlbum({album_id,state,actions}){
-	const album=state.albums.find(item=>item.album_id===album_id);
+	const album=state.albums.find(item=>item.id===album_id);
 	if(!album) throw new Error("ALBUM NOT EXIST! "+album_id); // using and lui hook/node that blocking render or something like that.
 	const laterAlert=()=>alert("i will code that function in future for infos open github:\n\nhttps://github.com/LFF5644/site-player/issues/4");
 	const [neededFiles,requestedFiles]=checkRequestFiles(album.files,state,actions);
@@ -242,9 +238,8 @@ function ViewAlbum({album_id,state,actions}){
 		neededFiles.length===0&&
 		node_map(
 			FileEntry,
-			album.files
-				.map(item=>state.files.find(i=>i.src===item))
-				.filter(Boolean),
+			album.files.map(item=>state.files.find(i=>i.id===item)),
+				//.filter(Boolean),
 			{state},
 		),
 	];
