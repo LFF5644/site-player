@@ -335,13 +335,13 @@ function playlist_add_album(album_id){
 		? 	item1.track_number-item2.track_number
 		: 	item1.src.localeCompare(item2.src) // I FORGOT AN FUCKING "E" at the end and got an error that localCompare is not a function and i searched too long :(
 	);
-	if(logging) log("PLAYLIST: adding album'"+album.album_name+"' with "+tracks.length+" tracks.");
+	if(logging) log("PLAYLIST: adding album '"+album.album_name+"' with "+tracks.length+" tracks.");
 	
 	svr.current_playlist.push(...tracks);
 }
-function playAlbum(album_id,force_play=false){
+async function playAlbum(album_id,force_play=false){
 	if(force_play){ // clearing current_playlist to start with album directly.
-		musicLib.stopPlayback();
+		await musicLib.stopPlayback();
 		svr.current_playlist=[];
 	}
 	playlist_add_album(album_id);
@@ -349,12 +349,13 @@ function playAlbum(album_id,force_play=false){
 }
 function onPlaybackEnd(ended_track){
 	continuePlaylist();
+	eventRunner("playback_change",musicLib.player);
 }
 function onPlaybackStart(track){
-	eventRunner("playback_change");
+	eventRunner("playback_change",musicLib.player);
 }
 function onPlaybackStopp(){
-	eventRunner("playback_change");
+	eventRunner("playback_change",musicLib.player);
 }
 
 async function continuePlaylist(){
@@ -402,8 +403,8 @@ svr.getAlbums=()=>[...svr.albums]; //[...svr.albums.entries()].map(item=>({...it
 svr.pausePlayback=musicLib.pausePlayback;
 svr.resumePlayback=musicLib.resumePlayback;
 svr.play=continuePlaylist;
-svr.playNext=()=>{
-	musicLib.stopPlayback();
+svr.playNext=async ()=>{
+	await musicLib.stopPlayback();
 	continuePlaylist();
 }
 svr.events={
@@ -411,7 +412,7 @@ svr.events={
 };
 
 return async()=>{
-	musicLib.stopPlayback(); // stopping playback & killing player.
+	await musicLib.stopPlayback(); // stopping playback & killing player.
 
 	// FREE RAM
 	delete svr.albums;
