@@ -203,7 +203,13 @@ function FileEntry({I,state}){
 	return [
 		node_dom("p",{
 			S:{
-				color: (state.playback.playing&&state.playback.track.src===I.src)?"green":(state.playback.paused&&state.playback.track.src===I.src)?"orange":undefined,
+				color: (
+					(state.playback.playing&&state.playback.track.src===I.src)
+					? 	"green":
+					(state.playback.paused&&state.playback.track.src===I.src)
+						?"orange"
+						:""
+				),
 			}
 		},[
 			I.track_number&&
