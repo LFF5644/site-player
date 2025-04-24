@@ -215,13 +215,20 @@ function FileEntry({I,state}){
 			I.track_number&&
 			node_dom("b",{innerText: String(I.track_number).padStart(2,"0")+". "}),
 			node_dom("span",{innerText: I.title}),
+
+			node_dom("button[innerText=Play]",{
+				onclick:()=> makeRequest(state.client_id,"player_play",{
+					track_id: I.id,
+					mode: confirm("Direkt Abspielen? (OK drücken).\nZur Wiedergabe hinzufügen (Abbrechen).")?"force":"append",
+				}),
+			}),
 		]),
 	];
 }
 function ViewAlbum({album_id,state,actions}){
 	const album=state.albums.find(item=>item.id===album_id);
 	if(!album) throw new Error("ALBUM NOT EXIST! "+album_id); // using and lui hook/node that blocking render or something like that.
-	const laterAlert=()=>alert("i will code that function in future for infos open github:\n\nhttps://github.com/LFF5644/site-player/issues/4");
+	//const laterAlert=()=>alert("i will code that function in future for infos open github:\n\nhttps://github.com/LFF5644/site-player/issues/4");
 	const [neededFiles,requestedFiles]=checkRequestFiles(album.files,state,actions);
 	return [
 		node(HeadLine,{actions,title:"Album"}),
@@ -233,10 +240,13 @@ function ViewAlbum({album_id,state,actions}){
 		node_dom("p",{innerText: "Lieder: "+album.files.length}),
 		node_dom("p[innerText=Aktionen: ]",null,[
 			node_dom("button[innerText=Album zur Wiedergabeliste hinzufügen]",{
-				onclick:()=> makeRequest(state.client_id,"player_play",{
-					album_id: album.id,
-					mode: "append",
-				}),
+				onclick: async()=>{
+					await makeRequest(state.client_id,"player_play",{
+						album_id: album.id,
+						mode: "append",
+					});
+					alert("Zur Wiedergabeliste hinzugefügt.");
+				},
 			}),
 			node_dom("button[innerText=Direkt abspielen]",{
 				onclick:()=> makeRequest(state.client_id,"player_play",{
@@ -256,7 +266,7 @@ function ViewAlbum({album_id,state,actions}){
 			FileEntry,
 			album.files.map(item=>state.files.find(i=>i.id===item)),
 				//.filter(Boolean),
-			{state},
+			{state,actions},
 		),
 	];
 }

@@ -36,10 +36,12 @@
 			?	(input.track_ids?input.track_ids.split(";").map(item=>Number(item.trim())):null)
 			:	(input.track_ids?input.track_ids:null)
 		);
+		const track_id=input.track_id?Number(input.track_id):null;
 		const album_id=Number(input.album_id)||null;
-		console.log(album_id,track_ids);
+
 		if(album_id) await player.play("album_id",album_id,mode);
 		else if(track_ids) await player.play("track_ids",track_ids,mode);
+		else if(track_id) await player.play("track_id",track_id,mode);
 		else player.play();
 		
 		return end(200,"OK");
