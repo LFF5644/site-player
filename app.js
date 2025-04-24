@@ -76,7 +76,7 @@ const model={
 	}),
 	logState: state=>console.log("state:",state)||state,
 }
-async function makeRequest(client_id,request,data){
+async function makeRequest(client_id,request,data={}){
 	const API_URL="/web/player/post.api";
 	const head=await fetch(API_URL,{
 		method: "post",
@@ -84,14 +84,14 @@ async function makeRequest(client_id,request,data){
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({
-			client_id,
+			...data,
 			action: request,
-			data,
+			client_id,
 		}),
 	});
 	const response=(await head.text()).trim();
 	if(response!=="OK"){
-		alert("request nicht durchgelassen: "+request+"\nantwort: "+response);
+		alert("request nicht durchgelassen: "+request+"\nAntwort: "+response);
 	}
 	else console.log("successful action: '"+request+"' getting response via eventStream.");
 }
@@ -162,7 +162,7 @@ function checkRequestFiles(files,state,actions){
 	if(requestFiles.length===0) return [neededFiles,[]];
 
 	actions.addRequest(...requestFiles.map(item=>"file-"+item));
-	makeRequest(state.client_id,"request_files",requestFiles);
+	makeRequest(state.client_id,"request_files",{files:requestFiles});
 	return [neededFiles,requestFiles];
 }
 
@@ -232,8 +232,18 @@ function ViewAlbum({album_id,state,actions}){
 		album.image_id&&node_dom("p",{innerText: "Enthält Bild-Datei."}),
 		node_dom("p",{innerText: "Lieder: "+album.files.length}),
 		node_dom("p[innerText=Aktionen: ]",null,[
-			node_dom("button[innerText=Album zur Wiedergabeliste hinzufügen]",{onclick:laterAlert}),
-			node_dom("button[innerText=Direkt abspielen]",{onclick:laterAlert}),
+			node_dom("button[innerText=Album zur Wiedergabeliste hinzufügen]",{
+				onclick:()=> makeRequest(state.client_id,"player_play",{
+					album_id: album.id,
+					mode: "append",
+				}),
+			}),
+			node_dom("button[innerText=Direkt abspielen]",{
+				onclick:()=> makeRequest(state.client_id,"player_play",{
+					album_id: album.id,
+					mode: "force",
+				}),
+			}),
 		]),
 
 		requestedFiles.length>0&&
@@ -297,6 +307,9 @@ function ViewOverview({state,actions}){
 			node_dom("span",{
 				innerText: state.playback.track.title,
 			}),
+			node_dom("button[innerText=Wiedergabe]",{
+				onclick: ()=> actions.changeView("playback"),
+			})
 		]),
 		!state.playback.playing&&
 		node_dom("p[innerText=Derzeit keine Musik-Wiedergabe.][style=color:red]"),
@@ -308,6 +321,44 @@ function ViewOverview({state,actions}){
 			{actions},
 		),
 		node_map(LogEntry,state.log),
+	];
+}
+function ViewPlayback({client_id,actions,playback}){
+	return[
+		node(HeadLine,{
+			actions,
+			backButton:true,
+			title: "Aktuelle Wiedergabe",
+		}),
+
+		(
+			playback.playing||
+			playback.paused
+		)&&
+		playback.track&&
+		node_dom("div",null,[
+			node_dom("p",{
+				innerText: `Wiedergabe: ${playback.track.title}`,
+			}),
+			node_dom("p[innerText=Aktionen: ]",null,[
+				node_dom("button[innerText=Play (try)]",{
+					onclick: ()=> makeRequest(client_id,"player_play"),
+				}),
+				node_dom("button[innerText=Next-Track]",{
+					onclick: ()=> makeRequest(client_id,"player_next"),
+				}),
+				node_dom("button[innerText=Pausieren]",{
+					onclick: ()=> makeRequest(client_id,"player_pause"),
+				}),
+				node_dom("button[innerText=Fortsetzen]",{
+					onclick: ()=> makeRequest(client_id,"player_resume"),
+				}),
+			]),
+		]),
+
+		!playback.playing&&
+		!playback.paused&&
+		node_dom("p[innerText=Keine Wiedergabe.]"),
 	];
 }
 function Root(){
@@ -337,6 +388,13 @@ function Root(){
 		node(ViewAlbum,{
 			state, actions,
 			album_id: state.view_id,
+		}),
+
+		state.view==="playback"&&
+		node(ViewPlayback,{
+			client_id: state.client_id,
+			playback: state.playback,
+			state, actions,
 		}),
 	];
 }

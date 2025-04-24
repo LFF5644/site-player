@@ -332,7 +332,17 @@ function eventRunner(event,...args){
 }
 function hasAlbum(album_id){return svr.albums.some(item=>item.id===album_id)}
 function getAlbum(album_id){return svr.albums.find(item=>item.id===album_id)}
-function playlist_add_album(album_id){
+function playlist_add_tracks(tracks,mode="append"){
+	if(mode==="append"){ // append to playback-list aka. playlist
+		svr.current_playlist.push(...tracks);		
+	}
+	else if(mode==="next"||mode==="force"){
+		svr.current_playlist.unshift(...tracks); // plays next after current song.
+		if(mode==="force") return svr.playNext(); // return because promise.
+	}
+	else throw new Error("playlist_add_albums err, add mode "+mode+" not exists. use append/next/force.");
+}
+function playlist_add_album(album_id,mode){
 	if(!hasAlbum(album_id)) throw new Error("cant play not existing album: "+album_id);
 	const album=getAlbum(album_id);
 	let tracks=svr.files.filter(item=>item.album_id===album_id);
@@ -342,17 +352,9 @@ function playlist_add_album(album_id){
 		? 	item1.track_number-item2.track_number
 		: 	item1.src.localeCompare(item2.src)
 	);
-	if(logging) log("PLAYLIST: adding album '"+album.album_name+"' with "+tracks.length+" tracks.");
+	if(logging) log("PLAYLIST: adding album '"+album.album_name+"' with "+tracks.length+" tracks, in "+mode+" mode.");
+	return playlist_add_tracks(tracks,mode);
 	
-	svr.current_playlist.push(...tracks);
-}
-async function playAlbum(album_id,force_play=false){
-	if(force_play){ // clearing current_playlist to start with album directly.
-		await musicLib.stopPlayback();
-		svr.current_playlist=[];
-	}
-	playlist_add_album(album_id);
-	continuePlaylist();
 }
 function onPlaybackEnd(ended_track){
 	continuePlaylist();
@@ -365,7 +367,7 @@ function onPlaybackStopp(){
 	eventRunner("playback_change",musicLib.player);
 }
 
-async function continuePlaylist(){
+function continuePlaylist(){
 	if(musicLib.player.playing) return;
 	if(musicLib.player.paused){
 		musicLib.resumePlayback();
@@ -405,12 +407,37 @@ musicLib.events.playback_stopped.push(onPlaybackStopp);
 
 svr.playback=musicLib.player;
 svr.stopPlayback=musicLib.stopPlayback;
-svr.playAlbum=playAlbum;
+svr.playAlbum=async (album_id,mode)=>{
+	await playlist_add_album(album_id,mode);
+	if(!musicLib.player.playing) continuePlaylist();
+};
 //svr.getAlbums=()=>[...svr.albums]; //[...svr.albums.entries()].map(item=>({...item[1],album_id:item[0]}));
 svr.pausePlayback=musicLib.pausePlayback;
 svr.resumePlayback=musicLib.resumePlayback;
-svr.play=continuePlaylist;
-svr.playNext=async ()=>{
+svr.continuePlaylist=continuePlaylist;
+svr.play=async (type,data,mode)=>{
+	if(type==="album_id"){
+		await playlist_add_album(data,mode);
+	}
+	else if(type==="track_ids"){
+		const tracks=(data
+			.map(item=>svr.files.find(i=>i.id===item))	// try to find files by id.
+			//.filter(Boolean)	// removes not exists file ids
+		);
+		if(tracks.some(item=>item===undefined)) throw new Error("svr.play err, some track ids not exists.");
+		await playlist_add_tracks(...tracks,mode);
+	}
+	else if(type==="track_id"){
+		const track=svr.files.find(item=>item.id===data);
+		if(!track) throw new Error("svr.play err, track_id not exist "+data);
+		await playlist_add_tracks([track],mode);
+	}
+	else if(!type){} // do nothing because no action just try to play.
+	else throw new Error("svr.play err, type is not allowed use album/track/tracks.");
+	if(!musicLib.player.playing) continuePlaylist();
+}
+svr.playNext=async (skip=0)=>{
+	if(skip>0) svr.current_playlist.splice(0,skip);
 	await musicLib.stopPlayback();
 	continuePlaylist();
 }
