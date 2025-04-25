@@ -1,0 +1,12 @@
+<?
+	const player=service_require("web/player/player");
+	const image_id=Number(input.image_id);
+
+	if(!player.thumbnails.has(image_id)){
+		log("image_id not exists.");
+		throw 400;
+	}
+	const image=player.thumbnails.get(image_id);
+	response.setHeader("Content-Type",image[0]);
+	response.write(image[1]);
+?>

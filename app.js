@@ -12,6 +12,12 @@ let log_counter=0;
 Array.prototype.last=function(){return this[this.length-1];}
 Array.prototype.removeLast=function(){return this.slice(0,this.length-1);}
 
+const IMG_PLAY="/files/img/playBTN.png";
+const IMG_PAUSE="/files/img/pauseBTN.png";
+const IMG_ALBUM_PLACEHOLDER="/files/img/folderRED.png";
+
+const SHOW_ALBUM_PLACEHOLDER=true;
+
 const model={
 	init:()=>({
 		albums: [],
@@ -183,18 +189,51 @@ function HeadLine({actions,title,backButton=true}){
 		]),
 	]
 }
-function AlbumEntry({I,actions}){
+function AlbumEntry({I,actions,playback,client_id}){
+	const ALBUM_IN_PLAYBACK=(
+		playback.playing&&
+		playback.track.album_id===I.id
+	);
+	const HAS_ALBUM_IMAGE=Boolean(I.image_id);
+	const IMG_URL=(
+		HAS_ALBUM_IMAGE
+		? 	"/web/player/image.api?image_id="+I.image_id
+		: 	IMG_ALBUM_PLACEHOLDER
+	);
 	return [
-		node_dom("p",{
-			innerText: I.album_name+" ("+I.files.length+") ",
-		},[
-			node_dom("a[innerText=P]",{
-				href: "/web/player/input.api?action=play&album_id="+I.id,
-				target: "_blank",
-				onclick: ()=> confirm("Möchtest du '"+I.album_name+"' abspielen?"),
+		node_dom("li[className=album]",null,[
+			(SHOW_ALBUM_PLACEHOLDER||I.image_id)&&
+			node_dom("img[loading=lazy][alt=Album-Thumbnail]",{
+				src: IMG_URL,
+				height: 50,
+				width: 50,
+				onmouseleave: event=> event.target.src=IMG_URL,
+				onmouseenter: event=> event.target.src=(
+					ALBUM_IN_PLAYBACK
+					? 	IMG_PAUSE
+					: 	IMG_PLAY
+				),
+				onclick: ()=>{
+					if(ALBUM_IN_PLAYBACK){
+						makeRequest(client_id,"player_pause");
+					}else{
+						makeRequest(client_id,"player_play",{
+							album_id: I.id,
+							mode: "force",
+						});
+					}
+						
+					//actions.changeView("album",I.id),
+				},
 			}),
-			node_dom("button[innerText=view]",{
-				onclick: ()=> actions.changeView("album",I.id),
+			node_dom("a",{
+				innerText: I.album_name+" ("+I.files.length+") ",
+				href: "#",
+				onclick: event=>{
+					event.preventDefault();
+					actions.changeView("album",I.id);
+					return false;
+				},
 			}),
 		]),
 	];
@@ -236,7 +275,12 @@ function ViewAlbum({album_id,state,actions}){
 		album.album_artist&&node_dom("p",{innerText: "Künstler: "+album.album_artist}),
 		album.disc_number&&node_dom("p",{innerText: "CD: "+album.disc_number}),
 		album.year&&node_dom("p",{innerText: "Jahr: "+album.year}),
-		album.image_id&&node_dom("p",{innerText: "Enthält Bild-Datei."}),
+		album.image_id&&node_dom("p",null,[
+			node_dom("img[alt=Album-Thumbnail][loading=lazy][title=Album-Cover]",{
+				src: "/web/player/image.api?image_id="+album.image_id,
+				height: "200",
+			}),
+		]),
 		node_dom("p",{innerText: "Lieder: "+album.files.length}),
 		node_dom("p[innerText=Aktionen: ]",null,[
 			node_dom("button[innerText=Album zur Wiedergabeliste hinzufügen]",{
@@ -323,13 +367,18 @@ function ViewOverview({state,actions}){
 		]),
 		!state.playback.playing&&
 		node_dom("p[innerText=Derzeit keine Musik-Wiedergabe.][style=color:red]"),
-
-		node_map(AlbumEntry,
-			state.search
-			? 	state.albums.filter(item=>item.album_name.toLowerCase().includes(state.search.toLowerCase()))
-			: 	state.albums,
-			{actions},
-		),
+		node_dom("ul[className=albums]",null,[
+			node_map(AlbumEntry,
+				state.search
+				? 	state.albums.filter(item=>item.album_name.toLowerCase().includes(state.search.toLowerCase()))
+				: 	state.albums,
+				{
+					actions,
+					client_id: state.client_id,
+					playback: state.playback,
+				},
+			),
+		]),
 		node_map(LogEntry,state.log),
 	];
 }
