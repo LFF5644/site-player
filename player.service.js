@@ -3,7 +3,12 @@
 const svr=this; // makes possible to use the service_object in functions.
 const CONFIG_FILE="player/player_config.json";
 
-const logging=process.argv.includes("-v");
+const FILE_MAX_READ_SIZE=1024*5; // change that value if u wanted to.
+
+const MIN_FILE_CHUNK_SIZE_FOR_IMAGE=1024*640; // 640KB, i hope the file header is in the first 640KB. with the image.
+const MIN_FILE_CHUNK_SIZE=1024*1; // just one KB for fast service start and i hope the header is fully included.
+
+const logging=true||process.argv.includes("-v"); // debugging xD
 if(logging) await rtjscomp.actions.module_cache_clear();
 
 const {data_load}=rtjscomp;
@@ -109,12 +114,10 @@ async function getMetadata(file){
 		if(!id3) break readMetadata;
 		if(fileExtension!=="mp3") break readMetadata;
 
-		// open the file but not the entire file
-		//const MAX_READ_SIZE=1024*640; // i hope the file header is in the first 640KB. with the image.
-		const MAX_READ_SIZE=1024*1; // just one KB for fast service start.
+		// open the file but not the entire file, just the first KB's.
 		const stream=fs.createReadStream(file,{
 			start: 0,
-			end: MAX_READ_SIZE,
+			end: FILE_MAX_READ_SIZE,
 		});
 		let buffer=Buffer.alloc(0);
 		await new Promise(resolve=>{
@@ -131,7 +134,7 @@ async function getMetadata(file){
 		try{
 			tags=await id3.read(buffer); // i do not need a await but i just wrote it because maybe in future xD RIP ;)
 		}catch(e){
-			log("Fehler beim Öffnen des Datei-Buffers mit ID3, MAX_READ_SIZE zu klein oder ungültige Datei? Datei: "+file+"; Datei Buffer: "+buffer.length);
+			log("Fehler beim Öffnen des Datei-Buffers mit ID3, FILE_MAX_READ_SIZE zu klein oder ungültige Datei? Datei: "+file+"; Bytes gelesen: "+buffer.length);
 			break readMetadata;
 		}
 		// checking tags and sorting.
@@ -150,7 +153,7 @@ async function getMetadata(file){
 		if(tags.title) metadata.title=tags.title;
 		if(tags.trackNumber&&!isNaN(Number(tags.trackNumber))) metadata.track_number=Number(tags.trackNumber);
 		if(tags.year&&!isNaN(Number(tags.year))) metadata.year=Number(tags.year);
-		if(tags.image&&tags.image.imageBuffer){
+		if(FILE_MAX_READ_SIZE>=MIN_FILE_CHUNK_SIZE_FOR_IMAGE&&tags.image&&tags.image.imageBuffer){ // only use the image if i guess chunk is big enough for an image.
 			metadata.image_id=hash_data(tags.image.imageBuffer); //crypto.createHash("sha256").update(tags.image.imageBuffer).digest("hex");
 			metadata.image_type=tags.image.mime;
 			metadata.image_buffer=tags.image.imageBuffer;
@@ -264,7 +267,7 @@ async function searchMedia(){
 		used_id3: false,
 		year: 0,
 	};
-	for(const file of files_metadata){
+	for(const file of files_metadata){ // transform file metadata to a "better" format.
 		if(file.image_id){
 			if(!svr.thumbnails.has(file.image_id)) svr.thumbnails.set(file.image_id,[file.image_type,file.image_buffer]);
 			delete file.image_buffer;
@@ -314,7 +317,7 @@ async function searchMedia(){
 			file.album_id=null;
 		}
 	}
-	const totalSize=[...svr.thumbnails.entries()].map(item=>item[1][1].length).reduce((size,value)=>size+value); // read thumbnail size from all cached images with hacky way.
+	const totalSize=[0,...[...svr.thumbnails.entries()].map(item=>item[1][1].length)].reduce((size,value)=>size+value); // read thumbnail size from all cached images with hacky way, made way more hacky because reduce cant run on 0 entrys RIP.
 	log("Total image size cached: "+Math.round(totalSize/1024*1000)/1000+" KB, "+svr.thumbnails.size+" images cached.");
 	log("Alben: "+svr.albums.length);
 	fsp.writeFile("/tmp/musicFiles.json",JSON.stringify({
