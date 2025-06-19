@@ -1,9 +1,11 @@
 // CREATED: 12.04.2025
 // newer version of currently-playing/musicPlayer, created: 14.01.2023, https://github.com/LFF5644/site-spotifyApiService
 const svr=this; // makes possible to use the service_object in functions.
-const CONFIG_FILE="player/player_config.json";
+const CONFIG_FILE="./data/player/player_config.json";
 
-const FILE_MAX_READ_SIZE=1024*5; // change that value if u wanted to.
+const config=require(CONFIG_FILE);
+
+const FILE_MAX_READ_SIZE=config.FILE_MAX_READ_SIZE||1024*5; // change that value if u wanted to.
 
 const MIN_FILE_CHUNK_SIZE_FOR_IMAGE=1024*640; // 640KB, i hope the file header is in the first 640KB. with the image.
 const MIN_FILE_CHUNK_SIZE=1024*1; // just one KB for fast service start and i hope the header is fully included.
@@ -11,7 +13,7 @@ const MIN_FILE_CHUNK_SIZE=1024*1; // just one KB for fast service start and i ho
 const logging=true||process.argv.includes("-v"); // debugging xD
 if(logging) await rtjscomp.actions.module_cache_clear();
 
-const {data_load}=rtjscomp;
+//const {data_load}=rtjscomp;
 const musicLib=require("./public/web/player/player.lib.js")();
 const fsp=require("fs/promises");
 const fs=require("fs");
@@ -26,8 +28,8 @@ try{
 }
 
 // no svr.start function required in new rtjscomp version.
-const config=await data_load(CONFIG_FILE); // using new data_load function.
-if(!config) throw new Error("cant start service, config empty.")
+//const config=await data_load(CONFIG_FILE); // using new data_load function.
+//if(!config) throw new Error("cant start service, config empty.")
 
 function hash_str(data){
 	const id=5644;
@@ -296,7 +298,8 @@ async function searchMedia(){
 			if(!album.used_id3&&file.used_id3) album.used_id3=file.used_id3;
 			if(!album.year&&file.year) album.year=file.year;
 
-			if(file.image_id===album.image_id) file.image_id=null;
+			// disabled because makes client code more complicated and inefficient!
+			//if(file.image_id===album.image_id) file.image_id=null;
 
 			// now unused.
 			delete file.album_artist;

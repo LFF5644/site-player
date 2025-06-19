@@ -361,12 +361,16 @@ function ViewOverview({state,actions}){
 			node_dom("span",{
 				innerText: state.playback.track.title,
 			}),
-			node_dom("button[innerText=Wiedergabe]",{
+			node_dom("button[innerText=Anzeigen]",{
 				onclick: ()=> actions.changeView("playback"),
-			})
+			}),
 		]),
 		!state.playback.playing&&
-		node_dom("p[innerText=Derzeit keine Musik-Wiedergabe.][style=color:red]"),
+		node_dom("p[innerText=Derzeit keine Musik-Wiedergabe.][style=color:red]",null,[
+			node_dom("button[innerText=Anzeigen]",{
+				onclick: ()=> actions.changeView("playback"),
+			}),
+		]),
 		node_dom("ul[className=albums]",null,[
 			node_map(AlbumEntry,
 				state.search
@@ -396,6 +400,12 @@ function ViewPlayback({client_id,actions,playback}){
 		)&&
 		playback.track&&
 		node_dom("div",null,[
+			playback.track.image_id&&node_dom("p",null,[
+			node_dom("img[alt=Album-Thumbnail][loading=lazy][title=Album-Cover]",{
+				src: "/web/player/image.api?image_id="+playback.track.image_id,
+				height: "200",
+			}),
+		]),
 			node_dom("p",{
 				innerText: `Wiedergabe: ${playback.track.title}`,
 			}),
@@ -417,7 +427,11 @@ function ViewPlayback({client_id,actions,playback}){
 
 		!playback.playing&&
 		!playback.paused&&
-		node_dom("p[innerText=Keine Wiedergabe.]"),
+		node_dom("p[innerText=Keine Wiedergabe.]",null,[
+			node_dom("button[innerText=Wiedergabeliste fortfahren]",{
+				onclick: ()=> makeRequest(client_id,"player_play"),
+			}),
+		]),
 	];
 }
 function Root(){
