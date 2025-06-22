@@ -398,7 +398,7 @@ function ViewOverview({state,actions}){
 		node_map(LogEntry,state.log),
 	];
 }
-function ViewPlayback({client_id,actions,playback}){
+function ViewPlayback({client_id,actions,playback,state}){
 	return[
 		node(HeadLine,{
 			actions,
@@ -412,18 +412,24 @@ function ViewPlayback({client_id,actions,playback}){
 		)&&
 		playback.track&&
 		node_dom("div",null,[
-			playback.track.image_id&&node_dom("p",null,[
-			node_dom("img[alt=Album-Thumbnail][loading=lazy][title=Album-Cover]",{
-				src: "/web/player/image.api?image_id="+playback.track.image_id,
-				height: "200",
-			}),
-		]),
+			playback.track.image_id&&
+			node_dom("p",null,[
+				node_dom("img[alt=Album-Thumbnail][loading=lazy][title=Album-Cover]",{
+					src: "/web/player/image.api?image_id="+playback.track.image_id,
+					height: "200",
+				}),
+			]),
 			node_dom("p",{
 				innerText: `Wiedergabe: ${playback.track.title}`,
 			}),
+			playback.track.album_id&&
+
 			node_dom("p[innerText=Aktionen: ]",null,[
 				node_dom("button[innerText=Play (try)]",{
 					onclick: ()=> makeRequest(client_id,"player_play"),
+				}),
+				node_dom("button[innerText=Previous-Track]",{
+					onclick: ()=> makeRequest(client_id,"player_pervious"),
 				}),
 				node_dom("button[innerText=Next-Track]",{
 					onclick: ()=> makeRequest(client_id,"player_next"),

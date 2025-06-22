@@ -39,17 +39,24 @@
 		const track_id=input.track_id?Number(input.track_id):null;
 		const album_id=Number(input.album_id)||null;
 
-		if(album_id) await player.play("album_id",album_id,mode);
-		else if(track_ids) await player.play("track_ids",track_ids,mode);
-		else if(track_id) await player.play("track_id",track_id,mode);
-		else player.play();
+		let res=undefined;
+		if(album_id) res=await player.play("album_id",album_id,mode);
+		else if(track_ids) res=await player.play("track_ids",track_ids,mode);
+		else if(track_id) res=await player.play("track_id",track_id,mode);
+		else res=player.play();
 		
+		if(res===undefined||res===true) return end(200,"OK");
+		else return end(400,"Wiedergabe wurde nicht gestartet");
+	}
+	else if(action==="player_pervious"){
+		const offset=Number(input.offset)||1;
+		await player.playNext(offset*-1);
 		return end(200,"OK");
 	}
 	else if(action==="player_next"){
-		const skip_count=Number(input.skipCount)||0;
+		const offset=Number(input.offset)||1;
 		//if(skip_count>0) player.current_playlist.splice(0,skip_count); // shifting the songs out.
-		await player.playNext(skip_count);
+		await player.playNext(offset);
 		return end(200,"OK");
 	}
 	else if(action==="player_pause"){

@@ -339,12 +339,16 @@ function eventRunner(event,...args){
 function hasAlbum(album_id){return svr.albums.some(item=>item.id===album_id)}
 function getAlbum(album_id){return svr.albums.find(item=>item.id===album_id)}
 function playlist_add_tracks(tracks,mode="append"){
+	const firstTrack=tracks[0];
+	tracks=tracks.filter(item=>!svr.current_playlist.includes(item)); // exclude existing tracks.
 	if(mode==="append"){ // append to playback-list aka. playlist
 		svr.current_playlist.push(...tracks);		
 	}
 	else if(mode==="next"||mode==="force"){
-		svr.current_playlist.unshift(...tracks); // plays next after current song.
-		if(mode==="force") return svr.playNext(); // return because promise.
+		//svr.current_playlist.unshift(...tracks); // plays next after current song.
+		svr.current_playlist.splice(getCurrentPlaylistIndex(1),0,...tracks); // adds the tracks after the current track.
+		//if(mode==="force") return svr.playNext(0); // return because promise.
+		if(mode==="force") musicLib.changePlayback(firstTrack);
 	}
 	else throw new Error("playlist_add_albums err, add mode "+mode+" not exists. use append/next/force.");
 }
@@ -363,7 +367,7 @@ function playlist_add_album(album_id,mode){
 	
 }
 function onPlaybackEnd(ended_track){
-	if(!continuePlaylist()) eventRunner("playback_change",musicLib.player);
+	if(!continuePlaylist(1,ended_track)) eventRunner("playback_change",musicLib.player);
 }
 function onPlaybackStart(track){
 	eventRunner("playback_change",musicLib.player);
@@ -375,7 +379,8 @@ function onPlaybackStateChange(){
 	eventRunner("playback_change",musicLib.player);
 }
 
-function continuePlaylist(){
+function continuePlaylist(offset=0,lastKnownTrack){
+	log("Playlist length: "+svr.current_playlist.length);
 	if(musicLib.player.playing) return true;
 	if(musicLib.player.paused){
 		musicLib.resumePlayback();
@@ -383,7 +388,9 @@ function continuePlaylist(){
 	}
 
 	if(svr.current_playlist.length>0){
-		const track=svr.current_playlist.shift();
+		//const track=svr.current_playlist.shift();
+		const index=getCurrentPlaylistIndex(offset,lastKnownTrack); // 1 because i dont want to play the same track once more.
+		const track=svr.current_playlist[index];
 		if(logging) log("playing next track.");
 		musicLib.changePlayback(track);
 		return true;
@@ -392,6 +399,28 @@ function continuePlaylist(){
 		if(logging) log("playlist finished!");
 		return false;
 	}
+}
+function getCurrentPlaylistIndex(offset=0,lastKnownTrack=null){
+	if(svr.current_playlist.length===0) return 0;
+	let index=-1;
+	if(lastKnownTrack) index=svr.current_playlist.indexOf(lastKnownTrack);
+	if(musicLib.player.track) index=svr.current_playlist.indexOf(musicLib.player.track);
+	//console.log("current playlist index: "+index+" "+(musicLib.player.track?musicLib.player.track.title:"???"));
+
+	if(index===-1) index=0;
+	while(offset>0){
+		index+=1;
+		offset-=1;
+		if(index>svr.current_playlist.length-1) index=0;
+	}
+	while(offset<0){
+		index-=1;
+		offset+=1;
+		if(index<0) index=svr.current_playlist.length-1;
+	}
+	//console.log("new playlist index: "+index);
+
+	return index;
 }
 
 svr.getAlbum=getAlbum;
@@ -448,10 +477,13 @@ svr.play=async (type,data,mode)=>{
 	else throw new Error("svr.play err, type is not allowed use album/track/tracks.");
 	if(!musicLib.player.playing) continuePlaylist();
 }
-svr.playNext=async (skip=0)=>{
-	if(skip>0) svr.current_playlist.splice(0,skip);
-	await musicLib.stopPlayback();
-	continuePlaylist();
+svr.playNext=async (skip=1)=>{
+	const index=getCurrentPlaylistIndex(skip);
+	const track=svr.current_playlist[index];
+	//console.log("play next:",index,track);
+	//if(skip>0) svr.current_playlist.splice(0,skip);
+	//continuePlaylist();
+	musicLib.changePlayback(track);
 }
 svr.events={
 	"playback_change":[],
