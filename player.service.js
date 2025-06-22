@@ -363,8 +363,7 @@ function playlist_add_album(album_id,mode){
 	
 }
 function onPlaybackEnd(ended_track){
-	continuePlaylist();
-	eventRunner("playback_change",musicLib.player);
+	if(!continuePlaylist()) eventRunner("playback_change",musicLib.player);
 }
 function onPlaybackStart(track){
 	eventRunner("playback_change",musicLib.player);
@@ -372,21 +371,26 @@ function onPlaybackStart(track){
 function onPlaybackStopp(){
 	eventRunner("playback_change",musicLib.player);
 }
+function onPlaybackStateChange(){
+	eventRunner("playback_change",musicLib.player);
+}
 
 function continuePlaylist(){
-	if(musicLib.player.playing) return;
+	if(musicLib.player.playing) return true;
 	if(musicLib.player.paused){
 		musicLib.resumePlayback();
-		return;
+		return true;
 	}
 
 	if(svr.current_playlist.length>0){
 		const track=svr.current_playlist.shift();
 		if(logging) log("playing next track.");
 		musicLib.changePlayback(track);
+		return true;
 	}
 	else{
 		if(logging) log("playlist finished!");
+		return false;
 	}
 }
 
@@ -400,6 +404,8 @@ svr.files=await searchMedia();
 
 // append event listeners
 musicLib.events.playback_ended.push(onPlaybackEnd);
+musicLib.events.playback_paused.push(onPlaybackStateChange);
+musicLib.events.playback_resumed.push(onPlaybackStateChange);
 musicLib.events.playback_started.push(onPlaybackStart);
 musicLib.events.playback_stopped.push(onPlaybackStopp);
 

@@ -15,6 +15,8 @@ let player={
 };
 let events={
 	playback_ended: [],
+	playback_paused: [],
+	playback_resumed: [],
 	playback_started:[],
 	playback_stopped: [],
 };
@@ -126,6 +128,7 @@ function pausePlayback(){
 	player.paused=true;
 	player.playing=false;
 	if(logging) console.log("player paused.");
+	eventRunner("playback_paused");
 }
 function resumePlayback(){
 	if(
@@ -138,6 +141,7 @@ function resumePlayback(){
 	player.paused=false;
 	player.playing=true;
 	if(logging) console.log("player resumed.");
+	eventRunner("playback_resumed");
 }
 function play(track){
 	if(typeof(track)==="string") track={src:track};

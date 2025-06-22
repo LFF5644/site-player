@@ -355,9 +355,20 @@ function ViewOverview({state,actions}){
 			})
 		]),
 
-		state.playback.playing&&
+		(
+			state.playback.playing||
+			(
+				!state.playback.playing&&
+				state.playback.paused
+			)
+		)&&
 		state.playback.track&&
-		node_dom("p[innerText=Aktuelle Wiedergabe: ]",null,[
+		node_dom("p",{
+			innerText: state.playback.playing?"Aktuelle Wiedergabe: ":"Pausierte Wiedergabe: ",
+			S:{
+				color: state.playback.playing?"auto":"orange",
+			},
+		},[
 			node_dom("span",{
 				innerText: state.playback.track.title,
 			}),
@@ -366,6 +377,7 @@ function ViewOverview({state,actions}){
 			}),
 		]),
 		!state.playback.playing&&
+		!state.playback.paused&&
 		node_dom("p[innerText=Derzeit keine Musik-Wiedergabe.][style=color:red]",null,[
 			node_dom("button[innerText=Anzeigen]",{
 				onclick: ()=> actions.changeView("playback"),
