@@ -43,10 +43,10 @@
 		if(album_id) res=await player.play("album_id",album_id,mode);
 		else if(track_ids) res=await player.play("track_ids",track_ids,mode);
 		else if(track_id) res=await player.play("track_id",track_id,mode);
-		else res=player.play();
+		else res=await player.play();
 		
 		if(res===undefined||res===true) return end(200,"OK");
-		else return end(400,"Wiedergabe wurde nicht gestartet");
+		else return end(400,"Wiedergabe wurde nicht gestartet.");
 	}
 	else if(action==="player_pervious"){
 		const offset=Number(input.offset)||1;
@@ -65,6 +65,14 @@
 			return end(200,"OK");
 		}
 		else return end(400,"playback cant paused.");
+	}
+	else if(action==="player_stop"){
+		if(player.playback.playing||player.playback.paused){
+			await player.stopPlayback();
+			return end(200,"OK");
+		}
+		else return end(400,"playback cant stop, not playing.");
+
 	}
 	else if(action==="player_resume"){
 		if(!player.playback.playing&&player.playback.paused){

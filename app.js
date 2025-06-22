@@ -434,6 +434,9 @@ function ViewPlayback({client_id,actions,playback,state}){
 				node_dom("button[innerText=Next-Track]",{
 					onclick: ()=> makeRequest(client_id,"player_next"),
 				}),
+				node_dom("button[innerText=STOP]",{
+					onclick: ()=> makeRequest(client_id,"player_stop"),
+				}),
 				node_dom("button[innerText=Pausieren]",{
 					onclick: ()=> makeRequest(client_id,"player_pause"),
 				}),
