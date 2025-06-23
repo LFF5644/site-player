@@ -71,6 +71,21 @@ async function* eventGenerator(client_id){
 					}
 				}
 			}
+			else if(request==="add_feed"){
+				if(data==="watch_currentPlaylist"){
+					client.feeds.push("watch_currentPlaylist");
+					client.requests.push("update_currentPlaylist"); // simple way to send the player.current_playlist.
+				}
+				else yield ["log","err unknown feed request."];
+			}
+			else if(request==="update_currentPlaylist"){
+				if(!client.feeds.includes("watch_currentPlaylist")) yield ["log","err current_playlist feed not watched."];
+				else yield ["set-currentPlaylist",JSON.stringify(player.current_playlist.map(item=>item.id))];
+			}
+			else if(request==="add_currentPlaylist"){
+				if(!client.feeds.includes("watch_currentPlaylist")) yield ["log","err current_playlist feed not watched."];
+				else yield ["add-currentPlaylist",JSON.stringify(data.map(item=>item.id))];
+			}
 			else yield ["log","err unknown request in server side."];
 		}
 		// its the main-loop like in an game.
@@ -82,6 +97,7 @@ async function* eventGenerator(client_id){
 function newClient(){
 	const client={
 		check: null,
+		feeds:[],
 		id: crypto.randomBytes(8).toString("hex").substring(0,16),
 		requests: [],
 		wait: null,
@@ -96,12 +112,20 @@ function removeClient(client){
 	svr.clients.delete(client.id);
 	svr.client_ids=svr.client_ids.filter(item=>item!==client.id);
 }
-function updateClientGenerator(request){
+function updateClientGenerator(request,requiredFeed=null){
 	for(const id of svr.client_ids){
 		const client=svr.clients.get(id);
+		if(requiredFeed&&!client.feeds.includes(requiredFeed)) continue; // skips client if feed wanted.
 		if(request) client.requests.push(request);
 		client.check(request===false?false:undefined); // stopping waiting and recheck for changes.
 	}
+}
+function onCurrentPlaylistChange(){
+	updateClientGenerator("update_currentPlaylist","watch_currentPlaylist");
+}
+function onCurrentPlaylistAppend(tracks){
+	updateClientGenerator(["add_currentPlaylist",tracks],"watch_currentPlaylist");
+
 }
 function onPlaybackChange(){
 	updateClientGenerator("update_playback");
@@ -111,6 +135,8 @@ svr.eventGenerator=eventGenerator;
 svr.newClient=newClient;
 svr.removeClient=removeClient;
 
+player.events.currentPlaylist_append.push(onCurrentPlaylistAppend);
+player.events.currentPlaylist_change.push(onCurrentPlaylistChange);
 player.events.playback_change.push(onPlaybackChange);
 
 return async ()=>{

@@ -343,11 +343,13 @@ function playlist_add_tracks(tracks,mode="append"){
 	tracks=tracks.filter(item=>!svr.current_playlist.includes(item)); // exclude existing tracks.
 	if(mode==="append"){ // append to playback-list aka. playlist
 		svr.current_playlist.push(...tracks);		
+		eventRunner("currentPlaylist_append",tracks);
 	}
 	else if(mode==="next"||mode==="force"){
 		//svr.current_playlist.unshift(...tracks); // plays next after current song.
 		svr.current_playlist.splice(getCurrentPlaylistIndex(1),0,...tracks); // adds the tracks after the current track.
 		//if(mode==="force") return svr.playNext(0); // return because promise.
+		eventRunner("currentPlaylist_change",svr.current_playlist);
 		if(mode==="force") musicLib.changePlayback(firstTrack);
 	}
 	else throw new Error("playlist_add_albums err, add mode "+mode+" not exists. use append/next/force.");
@@ -380,7 +382,6 @@ function onPlaybackStateChange(){
 }
 
 function continuePlaylist(offset=0,lastKnownTrack){
-	log("Playlist length: "+svr.current_playlist.length);
 	if(musicLib.player.playing) return true;
 	if(musicLib.player.paused){
 		musicLib.resumePlayback();
@@ -486,6 +487,8 @@ svr.playNext=async (skip=1)=>{
 	musicLib.changePlayback(track);
 }
 svr.events={
+	"currentPlaylist_append": [],
+	"currentPlaylist_change": [],
 	"playback_change":[],
 };
 

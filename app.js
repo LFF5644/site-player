@@ -22,12 +22,13 @@ const model={
 	init:()=>({
 		albums: [],
 		client_id: null,
+		current_playlist: null,
+		files: [],
 		log: [],
 		playback: {},
 		requests: [],
 		search: "",
 		stream_connection: false,
-		files: [],
 		view_id: 0,
 		view_last: [],
 		view: "overview",
@@ -61,10 +62,10 @@ const model={
 			...files,
 		],
 	}),
-	removeRequest: (state,request)=>({
+	removeRequest: (state,request)=>state.requests.includes(request)?{
 		...state,
 		requests: [...state.requests.filter(item=>item!==request)],
-	}),
+	}:state,
 	modify: (state,changes)=>({
 		...state,
 		...changes,
@@ -74,6 +75,13 @@ const model={
 		log:[
 			...state.log,
 			...log,
+		],
+	}),
+	appendCurrentPlaylist: (state, ...tracks)=>({
+		...state,
+		current_playlist: [
+			...state.current_playlist,
+			...tracks.filter(item=>!state.current_playlist.includes(item)),
 		],
 	}),
 	deleteLogs: state=>({
@@ -148,6 +156,17 @@ function initialiseStream(actions){
 		});
 		if(playback.track) actions.addFile(playback.track);
 	});
+	stream.addEventListener("set-currentPlaylist",event=>{
+		const current_playlist=JSON.parse(event.data);
+		console.log("set-currentPlaylist",current_playlist);
+		actions.modify({current_playlist});
+		actions.removeRequest("request-feed_watch-currentPlaylist");
+	});
+	stream.addEventListener("add-currentPlaylist",event=>{
+		const tracks=JSON.parse(event.data);
+		console.log("add-currentPlaylist",tracks);
+		actions.appendCurrentPlaylist(...tracks);
+	});
 	stream.addEventListener("add-file",event=>{
 		const file=JSON.parse(event.data);
 		console.log("add-file",file);
@@ -165,11 +184,11 @@ function checkRequestFiles(files,state,actions){
 	const neededFiles=files.filter(item=>!state.files.some(i=>i.id===item));
 	const requestFiles=neededFiles.filter(item=>!state.requests.some(i=>i===("file-"+item)));
 
-	if(requestFiles.length===0) return [neededFiles,[]];
+	if(requestFiles.length===0) return [neededFiles.length,0];
 
 	actions.addRequest(...requestFiles.map(item=>"file-"+item));
 	makeRequest(state.client_id,"request_files",{files:requestFiles});
-	return [neededFiles,requestFiles];
+	return [neededFiles.length,requestFiles.length];
 }
 
 function HeadLine({actions,title,backButton=true}){
@@ -238,7 +257,9 @@ function AlbumEntry({I,actions,playback,client_id}){
 		]),
 	];
 }
-function FileEntry({I,state}){
+function FileEntry({I,state,mode}){
+	let album=undefined;
+	if(mode==="playlist"&&I.album_id) album=state.albums.find(item=>item.id===I.album_id);
 	return [
 		node_dom("p",{
 			S:{
@@ -249,16 +270,37 @@ function FileEntry({I,state}){
 						?"orange"
 						:""
 				),
-			}
+			},
 		},[
+			mode==="playlist"&&
+			album&&
+			node_dom("span",{
+				//S:{color:"blue"},
+				innerText: album.album_name,
+				title: "Album",
+				// TODO: onclick: ()=> jump_to_album,
+			}),
+
+			mode==="playlist"&&
+			album&&
+			node_dom("span[innerText= - ][style=color:red]"),
+
 			I.track_number&&
 			node_dom("b",{innerText: String(I.track_number).padStart(2,"0")+". "}),
-			node_dom("span",{innerText: I.title}),
 
-			node_dom("button[innerText=Play]",{
+			mode==="album"&&
+			node_dom("button[innerText=+]",{
 				onclick:()=> makeRequest(state.client_id,"player_play",{
 					track_id: I.id,
-					mode: confirm("Direkt Abspielen? (OK drücken).\nZur Wiedergabe hinzufügen (Abbrechen).")?"force":"append",
+					mode: "append",
+				}),
+			}),			
+			node_dom("span",{
+				S:{cursor:"pointer"},
+				innerText: I.title,
+				onclick: ()=> makeRequest(state.client_id,"player_play",{
+					track_id: I.id,
+					mode: "force",
 				}),
 			}),
 		]),
@@ -300,17 +342,17 @@ function ViewAlbum({album_id,state,actions}){
 			}),
 		]),
 
-		requestedFiles.length>0&&
-		neededFiles.length>0&&
-		node_dom("p",{innerText:"Es wird noch auf "+requestedFiles.length+" Datei Metadaten gewartet..."}),
+		requestedFiles>0||
+		neededFiles>0&&
+		node_dom("p",{innerText:"Es wird noch auf "+neededFiles+" Datei Metadaten gewartet..."}),
 
-		requestedFiles.length===0&&
-		neededFiles.length===0&&
+		requestedFiles===0&&
+		neededFiles===0&&
 		node_map(
 			FileEntry,
 			album.files.map(item=>state.files.find(i=>i.id===item)),
 				//.filter(Boolean),
-			{state,actions},
+			{state,actions,mode:"album"},
 		),
 	];
 }
@@ -399,6 +441,12 @@ function ViewOverview({state,actions}){
 	];
 }
 function ViewPlayback({client_id,actions,playback,state}){
+	if(!state.current_playlist&&!state.requests.includes("request-feed_watch-currentPlaylist")){
+		actions.addRequest("request-feed_watch-currentPlaylist");
+		makeRequest(client_id,"request_feed",{feed:"watch_currentPlaylist"});
+	}
+	const [neededFiles,requestedFiles]=checkRequestFiles(state.current_playlist||[],state,actions);
+	const album=state.playback.track&&state.playback.track.album_id&&state.albums.find(item=>item.id===state.playback.track.album_id)
 	return[
 		node(HeadLine,{
 			actions,
@@ -422,7 +470,9 @@ function ViewPlayback({client_id,actions,playback,state}){
 			node_dom("p",{
 				innerText: `Wiedergabe: ${playback.track.title}`,
 			}),
-			playback.track.album_id&&
+
+			album&&
+			node_dom("p",{innerText:"Album: "+album.album_name}),
 
 			node_dom("p[innerText=Aktionen: ]",null,[
 				node_dom("button[innerText=Play (try)]",{
@@ -445,6 +495,24 @@ function ViewPlayback({client_id,actions,playback,state}){
 				}),
 			]),
 		]),
+		
+		!state.current_playlist&&
+		node_dom("p[innerText=Warten auf Metadaten...]"),
+
+		(
+			neededFiles>0||
+			requestedFiles>0
+		)&&
+		node_dom("p",{innerText:"Lade Metadaten von "+neededFiles}),
+
+		state.current_playlist&&
+		neededFiles===0&&
+		requestedFiles===0&&
+		node_map(
+			FileEntry,
+			state.current_playlist.map(item=>state.files.find(i=>i.id===item)),
+			{state,actions,mode:"playlist"},
+		),
 
 		!playback.playing&&
 		!playback.paused&&

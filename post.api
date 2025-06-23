@@ -18,6 +18,12 @@
 		client.check();
 		return end(200,"OK");
 	}
+	else if(action==="request_feed"){
+		//client.feed.push(input.feed);
+		client.requests.push(["add_feed",input.feed]);
+		client.check();
+		return end(200,"OK");
+	}
 	/*else if(action==="nextTick"){
 		client.check();
 		return end(200,"OK");
