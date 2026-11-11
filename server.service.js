@@ -8,7 +8,7 @@ svr.clients=new Map();
 svr.client_ids=[];
 svr.running=true;
 
-let id_counter=0;
+//let id_counter=0;
 
 async function* eventGenerator(client_id){
 	const l=a=>log("Generator-"+client_id+": "+a);
@@ -72,7 +72,10 @@ async function* eventGenerator(client_id){
 				}
 			}
 			else if(request==="add_feed"){
-				if(data==="watch_currentPlaylist"){
+				if(client.feeds.includes(data)){
+					yield ["log", "err feed already watched"];
+				}
+				else if(data==="watch_currentPlaylist"){
 					client.feeds.push("watch_currentPlaylist");
 					client.requests.push("update_currentPlaylist"); // simple way to send the player.current_playlist.
 				}
