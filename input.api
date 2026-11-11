@@ -10,59 +10,59 @@
 			const album_id=Number(input.album_id);
 			if(album_id&&player.hasAlbum(album_id)){
 				player.playAlbum(album_id,"force");
-				response.write("Spiele Album...");
+				output.write("Spiele Album...");
 			}
 			else{
 				player.play();
-				response.write("Versuche letzte Wiedergabe fort zu setzen...");
+				output.write("Versuche letzte Wiedergabe fort zu setzen...");
 			}
 			break;
 		case "pause":
 			if(!player.playback.paused&&player.playback.playing){
 				player.pausePlayback();
-				response.write("Pausiert.");
+				output.write("Pausiert.");
 			}
 			else{
-				response.write("Nicht pausiert.");
+				output.write("Nicht pausiert.");
 			}
 			break;
 		case "resume":
 			if(player.playback.paused&&!player.playback.playing){
 				player.resumePlayback();
-				response.write("Fortgesetzt.");
+				output.write("Fortgesetzt.");
 			}
 			else{
-				response.write("Nicht fortgesetzt.");
+				output.write("Nicht fortgesetzt.");
 			}
 			break;
 		case "stop":
 			player.stopPlayback();
-			response.write("Gestoppt.");
+			output.write("Gestoppt.");
 			break;
 		case "next":
 			player.playNext();
-			response.write("Überspringe Song.");
+			output.write("Überspringe Song.");
 			break;
 		case "get_albums":
-			response.write("ALBEN: "+player.albums.length+"\n\n"+JSON.stringify(player.getAlbums(),null,2));
+			output.write("ALBEN: "+player.albums.length+"\n\n"+JSON.stringify(player.getAlbums(),null,2));
 			break;
 		case "get_playlist":
-			response.write("Song-Wiedergabeliste: "+player.current_playlist.length+"\nPLAYLIST:\n"+JSON.stringify(player.current_playlist,null,2));
+			output.write("Song-Wiedergabeliste: "+player.current_playlist.length+"\nPLAYLIST:\n"+JSON.stringify(player.current_playlist,null,2));
 			break;
 		case "get_playback":
-			response.write("Song-Wiedergabeliste: "+player.current_playlist.length+"\nPLAYBACK:\n"+JSON.stringify({...player.playback,stream:undefined,process:undefined},null,2));
+			output.write("Song-Wiedergabeliste: "+player.current_playlist.length+"\nPLAYBACK:\n"+JSON.stringify({...player.playback,stream:undefined,process:undefined},null,2));
 			break;
 		case "get_image":
 			if(input.image_id&&player.thumbnails.has(input.image_id)){
 				const image=player.thumbnails.get(input.image_id);
 				response.setHeader("Content-Type",image[0]);
-				response.write(image[1]);
+				output.write(image[1]);
 				delete image;
 			}
 			else{
-				response.write("Bild nicht gefunden.");
+				output.write("Bild nicht gefunden.");
 			}
 			break;
-		default: response.write("Aktionen: 'play', 'pause', 'resume', 'stop', 'next', 'get_albums', 'get_playback', 'get_playlist', 'get_image'."); break;
+		default: output.write("Aktionen: 'play', 'pause', 'resume', 'stop', 'next', 'get_albums', 'get_playback', 'get_playlist', 'get_image'."); break;
 	}
 ?>

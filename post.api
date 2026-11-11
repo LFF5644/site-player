@@ -6,7 +6,7 @@
 	const client=server.clients.get(client_id);
 	
 	function end(code,msg){
-		response.write(msg);
+		output.write(msg);
 		response.statusCode=code;
 		// throw here!
 	}

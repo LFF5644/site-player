@@ -8,5 +8,5 @@
 	}
 	const image=player.thumbnails.get(image_id);
 	response.setHeader("Content-Type",image[0]);
-	response.write(image[1]);
+	output.write(image[1]);
 ?>
